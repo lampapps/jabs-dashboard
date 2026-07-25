@@ -1,0 +1,9 @@
+Flask
+waitress
+python-dotenv
+PyYAML
+requests
+mistune
+cron_descriptor
+boto3
+croniter

@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}Logs{% endblock %}
+{% block top_scripts %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+<style>
+    a[id^="log-"] {
+    scroll-margin-top: 80px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid my-4">
+    <div class="d-flex justify-content-between align-items-center mb-4" style="max-width: 1300px; margin-left: auto; margin-right: auto;">
+        <h2 class="mb-0">Logs</h2>
+        <button id="trimLogsButton" class="btn btn-danger btn-sm">
+            <i class="fa fa-scissors"></i> Trim All Logs
+        </button>
+    </div>
+
+    <!-- Breadcrumb/Jump Menu -->
+    <nav aria-label="Log navigation" class="mb-4" style="max-width: 1300px; margin-left: auto; margin-right: auto;">
+        <ol class="breadcrumb flex-wrap mb-0">
+            {% for name, _, _, _, _ in logs %}
+            <li class="breadcrumb-item">
+                <a href="#log-{{ name|replace('.', '-') }}">{{ name }}</a>
+            </li>
+            {% endfor %}
+        </ol>
+    </nav>
+    <div class="row g-4 justify-content-center">
+        {% for name, content, stats, response_codes, full_content in logs %}
+        <div class="col-12">
+            <a id="log-{{ name|replace('.', '-') }}"></a>
+            <div class="card" style="max-width: 1300px; min-height: 500px; margin-left: auto; margin-right: auto;">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="fw-bold"><i class="fa-solid fa-file-lines"></i> {{ name }}</span>
+                    <button class="btn btn-outline-danger btn-sm" onclick="purgeLog('{{ name }}')">
+                        <i class="fa fa-trash"></i> Purge
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        {% if name == "server.log" and response_codes %}
+                            <span class="badge bg-secondary me-1"
+                                  title="Total lines">Lines: {{ stats.total }}</span>
+                            {% set code_tooltips = {
+                                '200': 'OK: Success',
+                                '201': 'Created',
+                                '204': 'No Content',
+                                '301': 'Moved Permanently',
+                                '302': 'Found (Redirect)',
+                                '304': 'Not Modified',
+                                '400': 'Bad Request',
+                                '401': 'Unauthorized',
+                                '403': 'Forbidden',
+                                '404': 'Not Found',
+                                '500': 'Internal Server Error',
+                                '502': 'Bad Gateway',
+                                '503': 'Service Unavailable'
+                            } %}
+                            {% for code, count in response_codes.items() %}
+                                {% set pill_class = "bg-success" if code.startswith('2') else "bg-warning text-dark" if code.startswith('4') else "bg-danger" if code.startswith('5') else "bg-secondary" %}
+                                <span class="badge {{ pill_class }} me-1 log-filter-badge" style="cursor:pointer;"
+                                      data-log-id="{{ name|replace('.', '-') }}" data-filter="{{ code }}"
+                                      title="{{ code_tooltips.get(code, 'HTTP Status Code ' ~ code) }} — click to filter">
+                                    {{ code }}: {{ count }}
+                                </span>
+                            {% endfor %}
+                        {% else %}
+                            <span class="badge bg-secondary me-1"
+                                  title="Total lines">Lines: {{ stats.total }}</span>
+                            <span class="badge bg-success me-1 log-filter-badge" style="cursor:pointer;"
+                                  data-log-id="{{ name|replace('.', '-') }}" data-filter="INFO"
+                                  title="Filter INFO lines">Info: {{ stats.info }}</span>
+                            <span class="badge bg-warning text-dark me-1 log-filter-badge" style="cursor:pointer;"
+                                  data-log-id="{{ name|replace('.', '-') }}" data-filter="WARNING"
+                                  title="Filter WARNING lines">Warning: {{ stats.warning }}</span>
+                            {% if stats.debug > 0 %}
+                            <span class="badge bg-primary me-1 log-filter-badge" style="cursor:pointer;"
+                                  data-log-id="{{ name|replace('.', '-') }}" data-filter="DEBUG"
+                                  title="Filter DEBUG lines">Debug: {{ stats.debug }}</span>
+                            {% endif %}
+                            {% if stats.other > 0 %}
+                            <span class="badge bg-dark me-1 log-filter-badge" style="cursor:pointer;"
+                                  data-log-id="{{ name|replace('.', '-') }}" data-filter="OTHER"
+                                  title="Filter other lines">Other: {{ stats.other }}</span>
+                            {% endif %}
+                            <span class="badge bg-danger me-1 log-filter-badge" style="cursor:pointer;"
+                                  data-log-id="{{ name|replace('.', '-') }}" data-filter="ERROR"
+                                  title="Filter ERROR lines">Error: {{ stats.error }}</span>
+                        {% endif %}
+                    </div>
+<pre id="log-pre-{{ name|replace('.', '-') }}" class="bg-light text-dark p-2 rounded"
+     style="max-height: 500px; min-height: 250px; font-size: 0.92em; overflow:auto; white-space: pre-wrap; word-break: break-all;"
+     data-original-content="{{ content | e }}">{{ content }}</pre>
+                </div>
+                <div class="card-footer d-flex justify-content-end align-items-center">
+                    <button type="button" class="btn btn-info btn-sm ms-auto" data-bs-toggle="modal" data-bs-target="#viewLogModal-{{ name|replace('.', '-') }}">
+                        <i class="fa fa-eye"></i> View Full
+                    </button>
+                </div>
+            </div>
+            <!-- Back to Top link at the bottom of each card -->
+            <div class="text-end mt-1 mb-4" style="max-width: 1300px; margin-left: auto; margin-right: auto;">
+                <a href="#top" class="btn btn-link btn-sm">Back to Top</a>
+            </div>
+        </div>
+        <!-- View Modal -->
+        <div class="modal fade" id="viewLogModal-{{ name|replace('.', '-') }}" tabindex="-1" aria-labelledby="viewLogModalLabel-{{ name|replace('.', '-') }}" aria-hidden="true">
+          <div class="modal-dialog modal-lg modal-dialog-scrollable" style="max-width: 90vw;">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="viewLogModalLabel-{{ name|replace('.', '-') }}">View {{ name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <pre class="bg-dark text-light p-3 rounded" id="log-full-{{ name|replace('.', '-') }}" style="max-height: 70vh; width: 100%; overflow:auto; white-space: pre-wrap; word-break: break-all;">{{ full_content }}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/global.js') }}"></script>
+<script>
+    const maxLogLines = {{ MAX_LOG_LINES }};
+    document.getElementById("trimLogsButton").addEventListener("click", function () {
+        if (confirm("Are you sure you want to trim all logs? This will keep only the last " + maxLogLines + " lines of each log file.")) {
+            fetch('/api/trim_logs', { method: 'POST' })
+            .then(response => response.json())
+            .then (data => {
+                alert("Logs have been trimmed successfully!");
+                location.reload();
+            })
+            .catch(error => {
+                alert("An error occurred while trimming the logs.");
+            });
+        }
+    });
+
+    // Badge filter logic
+    document.querySelectorAll('.log-filter-badge').forEach(function(badge) {
+        badge.addEventListener('click', function() {
+            var logId = this.dataset.logId;
+            var filter = this.dataset.filter;
+            var pre = document.getElementById('log-pre-' + logId);
+            var fullPre = document.getElementById('log-full-' + logId);
+            if (!pre) return;
+
+            // Use the full log content (from modal) as the filter source
+            var fullContent = fullPre ? fullPre.textContent : pre.textContent;
+
+            // Toggle off if clicking active badge
+            var isActive = this.classList.contains('log-filter-active');
+            document.querySelectorAll('.log-filter-badge[data-log-id="' + logId + '"]').forEach(function(b) {
+                b.classList.remove('log-filter-active');
+                b.style.outline = '';
+            });
+
+            if (isActive || filter === 'ALL') {
+                // Restore trimmed preview
+                pre.textContent = pre.dataset.originalContent;
+                return;
+            }
+
+            this.classList.add('log-filter-active');
+            this.style.outline = '2px solid #fff';
+
+            var lines = fullContent.split('\n');
+            var filtered;
+            if (filter === 'OTHER') {
+                filtered = lines.filter(function(l) {
+                    return l && !l.includes('INFO') && !l.includes('WARNING') && !l.includes('ERROR') && !l.includes('DEBUG');
+                });
+            } else {
+                filtered = lines.filter(function(l) { return l.includes(filter); });
+            }
+            pre.textContent = filtered.length ? filtered.join('\n') : '(no matching lines)';
+        });
+    });
+
+    function purgeLog(logName) {
+        if (confirm("Purge all lines from " + logName + "? This cannot be undone.")) {
+            fetch('/api/purge_log/' + encodeURIComponent(logName), { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert("Log purged.");
+                    location.reload();
+                } else {
+                    alert("Failed to purge log: " + (data.error || "Unknown error"));
+                }
+            })
+            .catch(error => {
+                alert("An error occurred while purging the log.");
+            });
+        }
+    }
+</script>
+{% endblock %}

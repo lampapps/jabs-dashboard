@@ -1,0 +1,96 @@
+<div class="mb-3">
+    <h6><i class="fa fa-file-code me-2"></i> Job Settings</h6>
+    <div class="border rounded p-2 mb-2 bg-light-subtle">
+        <ul class="mb-0 small">
+            <li><b>Job Name:</b> <code>{{ job_config.get('job_name', 'Not set') }}</code></li>
+            <li><b>Source:</b> <code>{{ job_config.get('source', 'Not set') }}</code></li>
+        </ul>
+    </div>
+</div>
+<div class="mb-3">
+    <h6><i class="fa fa-file-code me-2"></i> Global Settings</h6>
+    <div class="row">
+        <div class="col-6">
+            <div class="border rounded p-2 mb-2 bg-light-subtle">
+                <strong>Global Settings</strong>
+                <ul class="mb-0 small">
+                    <li><b>Destination:</b> <code>{{ global_config.destination or 'Not set' }}</code></li>
+                    <li><b>Keep Sets:</b> <code>{{ global_config.keep_sets or 'Not set' }}</code></li>
+                    <li><b>Max Tarball Size (MB):</b> <code>{{ global_config.max_tarball_size or 'Not set' }}</code></li>
+                    <li><b>Use Global Excludes:</b>
+                        <code>
+                            {% if global_config.use_common_exclude is defined and global_config.use_common_exclude is not none %}
+                                {{ 'True' if global_config.use_common_exclude else 'False' }}
+                            {% else %}
+                                True (default)
+                            {% endif %}
+                        </code>
+                    </li>
+                    <li><b>AWS:</b>
+                        <ul>
+                            <li>Enabled: <code>{{ global_config.get('aws', {}).get('enabled', 'Not set') }}</code></li>
+                            <li>Profile: <code>{{ global_config.get('aws', {}).get('profile', 'Not set') }}</code></li>
+                            <li>Region: <code>{{ global_config.get('aws', {}).get('region', 'Not set') }}</code></li>
+                            <li>Bucket: <code>{{ global_config.get('aws', {}).get('bucket', 'Not set') }}</code></li>
+                            <li>Storage Class: <code>{{ global_config.get('aws', {}).get('storage_class', 'Not set') }}</code></li>
+                        </ul>
+                    </li>
+                    <li><b>Encryption:</b>
+                        <ul>
+                            <li>Enabled: <code>{{ global_config.get('encryption', {}).get('enabled', 'Not set') }}</code></li>
+                            <li>Passphrase Env: <code>{{ global_encryption.passphrase_env or 'Not set' }}</code></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="border rounded p-2 mb-2 bg-light-subtle">
+                <strong>Job Overrides</strong>
+                <ul class="mb-0 small">
+                    <li><b>Destination:</b> <code>{{ job_config.destination or '— (uses global)' }}</code></li>
+                    <li><b>Keep Sets:</b> <code>{{ job_config.keep_sets or '— (uses global)' }}</code></li>
+                    <li><b>Max Tarball Size (MB):</b> <code>{{ job_config.max_tarball_size or '— (uses global)' }}</code></li>
+                    <li><b>Use Common Exclude:</b>
+                        <code>
+                            {% if job_config.use_common_exclude is defined and job_config.use_common_exclude is not none %}
+                                {{ 'True' if job_config.use_common_exclude else 'False' }}
+                            {% else %}
+                                — (uses global)
+                            {% endif %}
+                        </code>
+                    </li>
+                    <li><b>AWS:</b>
+                        <ul>
+                            <li>Enabled: <code>{{ job_config.get('aws', {}).get('enabled', '— (uses global)') }}</code></li>
+                            <li>Profile: <code>{{ job_config.get('aws', {}).get('profile', '— (uses global)') }}</code></li>
+                            <li>Region: <code>{{ job_config.get('aws', {}).get('region', '— (uses global)') }}</code></li>
+                            <li>Bucket: <code>{{ job_config.get('aws', {}).get('bucket', '— (uses global)') }}</code></li>
+                            <li>Storage Class: <code>{{ job_config.get('aws', {}).get('storage_class', '— (uses global)') }}</code></li>
+                        </ul>
+                    </li>
+                    <li><b>Encryption:</b>
+                        <ul>
+                            <li>Enabled: <code>{{ job_config.get('encryption', {}).get('enabled', '— (uses global)') }}</code></li>
+                            <li>Passphrase Env: <code>{{ job_config.get('encryption', {}).get('passphrase_env', '— (uses global)') }}</code></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="mb-3">
+    <h6><i class="fa fa-ban me-2"></i> Job Specific Exclude Patterns</h6>
+    <div class="border rounded p-2 mb-2 bg-light-subtle">
+        {% if job_config.get('exclude') %}
+            <ul class="mb-0 small">
+                {% for pattern in job_config.get('exclude') %}
+                    <li><code>{{ pattern }}</code></li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <code>Not set</code>
+        {% endif %}
+    </div>
+</div>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>JABS Daily Digest</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f5f7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f7; padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#2c3e50; padding:20px 28px;">
+              <span style="color:#ffffff; font-size:20px; font-weight:600;">JABS Daily Digest</span>
+              <div style="color:#b8c2cc; font-size:13px; margin-top:4px;">
+                {{ period_start }} &ndash; {{ period_end }}
+              </div>
+            </td>
+          </tr>
+
+          <!-- Summary -->
+          <tr>
+            <td style="padding:24px 28px 8px 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td width="50%" style="text-align:center; padding:12px; background-color:#eafaf1; border-radius:6px;">
+                    <div style="font-size:24px; font-weight:700; color:#1e8449;">{{ succeeded|length }}</div>
+                    <div style="font-size:12px; color:#1e8449; text-transform:uppercase; letter-spacing:0.5px;">Succeeded</div>
+                  </td>
+                  <td width="12"></td>
+                  <td width="50%" style="text-align:center; padding:12px; background-color:{{ '#fdedec' if failed else '#f4f5f7' }}; border-radius:6px;">
+                    <div style="font-size:24px; font-weight:700; color:{{ '#c0392b' if failed else '#7f8c8d' }};">{{ failed|length }}</div>
+                    <div style="font-size:12px; color:{{ '#c0392b' if failed else '#7f8c8d' }}; text-transform:uppercase; letter-spacing:0.5px;">Failed</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          {% if failed %}
+          <!-- Failed jobs -->
+          <tr>
+            <td style="padding:20px 28px 4px 28px;">
+              <div style="font-size:14px; font-weight:600; color:#c0392b; border-bottom:2px solid #fdedec; padding-bottom:6px;">
+                Failed Backups
+              </div>
+            </td>
+          </tr>
+          {% for host_group in failed_by_host %}
+          <tr>
+            <td style="padding:12px 28px 0 28px;">
+              <div style="font-size:12px; font-weight:600; color:#333333; text-transform:uppercase; letter-spacing:0.3px;">
+                {{ host_group.hostname }}
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:4px 28px 0 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px; color:#333333;">
+                <tr style="color:#7f8c8d; text-transform:uppercase; font-size:11px;">
+                  <td style="padding:6px 4px;">Job</td>
+                  <td style="padding:6px 4px;">Completed</td>
+                  <td style="padding:6px 4px;">Error</td>
+                </tr>
+                {% for job in host_group.jobs %}
+                <tr style="border-top:1px solid #f0f0f0;">
+                  <td style="padding:8px 4px; vertical-align:top;">{{ job.job_name }}</td>
+                  <td style="padding:8px 4px; vertical-align:top; white-space:nowrap;">{{ job.completed_at_fmt }}</td>
+                  <td style="padding:8px 4px; vertical-align:top; color:#c0392b;">{{ job.error_message or '-' }}</td>
+                </tr>
+                {% endfor %}
+              </table>
+            </td>
+          </tr>
+          {% endfor %}
+          {% endif %}
+
+          {% if succeeded %}
+          <!-- Successful jobs -->
+          <tr>
+            <td style="padding:20px 28px 4px 28px;">
+              <div style="font-size:14px; font-weight:600; color:#1e8449; border-bottom:2px solid #eafaf1; padding-bottom:6px;">
+                Successful Backups
+              </div>
+            </td>
+          </tr>
+          {% for host_group in succeeded_by_host %}
+          <tr>
+            <td style="padding:12px 28px 0 28px;">
+              <div style="font-size:12px; font-weight:600; color:#333333; text-transform:uppercase; letter-spacing:0.3px;">
+                {{ host_group.hostname }}
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:4px 28px 0 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px; color:#333333;">
+                <tr style="color:#7f8c8d; text-transform:uppercase; font-size:11px;">
+                  <td style="padding:6px 4px;">Job</td>
+                  <td style="padding:6px 4px;">Type</td>
+                  <td style="padding:6px 4px;">Completed</td>
+                  <td style="padding:6px 4px;">Size</td>
+                </tr>
+                {% for job in host_group.jobs %}
+                <tr style="border-top:1px solid #f0f0f0;">
+                  <td style="padding:8px 4px; vertical-align:top;">{{ job.job_name }}</td>
+                  <td style="padding:8px 4px; vertical-align:top;">{{ job.backup_type }}</td>
+                  <td style="padding:8px 4px; vertical-align:top; white-space:nowrap;">{{ job.completed_at_fmt }}</td>
+                  <td style="padding:8px 4px; vertical-align:top;">{{ job.bytes_processed_fmt }}</td>
+                </tr>
+                {% endfor %}
+              </table>
+            </td>
+          </tr>
+          {% endfor %}
+          {% endif %}
+
+          {% if not jobs %}
+          <tr>
+            <td style="padding:24px 28px; color:#7f8c8d; font-size:13px;">
+              No backup activity was recorded during this period.
+            </td>
+          </tr>
+          {% endif %}
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 28px; border-top:1px solid #eeeeee; margin-top:12px;">
+              <div style="font-size:11px; color:#a0a0a0;">
+                Generated {{ generated_at }} by JABS
+              </div>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

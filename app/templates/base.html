@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+{% block html_tag %}
+<html lang="en">
+{% endblock %}
+<head>
+    <script>
+        // Set theme before CSS loads to prevent FOUC
+        (function() {
+            try {
+                var theme = localStorage.getItem('theme') || 'auto';
+                var html = document.documentElement;
+                if (theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    html.setAttribute('data-bs-theme', 'dark');
+                } else if (theme === 'light' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+                    html.setAttribute('data-bs-theme', 'light');
+                } else {
+                    html.setAttribute('data-bs-theme', 'auto');
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>JABS {% block title %}Dashboard{% endblock %}</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+    <link href="https://cdn.datatables.net/v/bs5/jq-3.7.0/dt-2.2.2/b-3.2.2/b-print-3.2.2/fh-4.0.1/r-3.0.4/rg-1.5.1/datatables.min.css" rel="stylesheet" integrity="sha384-MZ0CnLBP8jRsPEkJ8ufEXHxsgPRgrjE1Vs14Vq6b4oXxC1atRMXMDb4bLqd6dX6J" crossorigin="anonymous">
+    {% block top_scripts %}
+     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    {% endblock %}
+</head>
+<body class="body-padding-fix">
+    {% block spinner %}{% endblock %}
+    {% block navbar %}
+    <div class="container-fluid p-0">
+        <nav class="sb-topnav navbar navbar-expand-md navbar-dark bg-black fixed-top">
+          <a class="navbar-brand ps-3" href="/">&#123; JABS &#125;</a>
+          <!-- Mobile Icons (Visible on xs, sm screens) -->
+          <span class="nav-item d-md-none ms-auto me-2">
+              {% include 'partials/development_mode_banner.html' %}
+          </span>
+          <!-- End Mobile Icons -->
+          <button class="navbar-toggler me-3" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarNavDropdown">
+            <!-- Left-aligned nav links -->
+            <ul class="navbar-nav me-auto mb-2 mb-md-0">
+              <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}" href="{{ url_for('dashboard.dashboard') }}">
+                  Dashboard
+                </a>
+              </li>
+              <li class="nav-item dropdown
+                  {% if request.endpoint in ['configuration.manage_hosts', 'configuration.edit_dashboard_config', 'security.security'] %}active{% endif %}">
+                <a class="nav-link dropdown-toggle
+                  {% if request.endpoint in ['configuration.manage_hosts', 'configuration.edit_dashboard_config', 'security.security'] %}active{% endif %}"
+                  href="#" id="configDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  Configuration
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="configDropdown">
+                  <li>
+                    <a class="dropdown-item {% if request.endpoint == 'configuration.manage_hosts' %}active{% endif %}" href="{{ url_for('configuration.manage_hosts') }}">
+                      <i class="fas fa-server me-1"></i> Hosts
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item {% if request.endpoint == 'configuration.edit_dashboard_config' %}active{% endif %}" href="{{ url_for('configuration.edit_dashboard_config') }}">
+                      <i class="fas fa-cogs me-1"></i> Dashboard Config
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item {% if request.endpoint == 'security.security' %}active{% endif %}" href="{{ url_for('security.security') }}">
+                      <i class="fas fa-lock me-1"></i> Security
+                    </a>
+                  </li>
+                </ul>
+              </li>
+              <li class="nav-item dropdown
+                  {% if request.endpoint in ['dashboard.help', 'dashboard.documentation', 'logs.logs_view'] %}active{% endif %}">
+                <a class="nav-link dropdown-toggle
+                  {% if request.endpoint in ['dashboard.help', 'dashboard.documentation', 'logs.logs_view'] %}active{% endif %}"
+                  href="#" id="helpDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  Help
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="helpDropdown">
+                  <li>
+                    <a class="dropdown-item {% if request.endpoint == 'dashboard.documentation' %}active{% endif %}" href="{{ url_for('dashboard.documentation') }}">
+                      <i class="fas fa-book me-1"></i> Documentation
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item {% if request.endpoint == 'dashboard.change_log' %}active{% endif %}" href="{{ url_for('dashboard.change_log') }}">
+                      <i class="fas fa-book me-1"></i> Change Log
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item {% if request.endpoint == 'logs.logs_view' %}active{% endif %}" href="{{ url_for('logs.logs_view') }}">
+                      <i class="fas fa-file-alt me-1"></i> Logs
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item {% if request.endpoint == 'dashboard.license_page' %}active{% endif %}" href="{{ url_for('dashboard.license_page') }}">
+                      <i class="fas fa-file-contract me-1"></i> License
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#aboutModal">
+                      <i class="fas fa-info-circle me-1"></i> About
+                    </a>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+            <!-- Theme switcher: mobile only -->
+            <ul class="navbar-nav d-md-none w-100 text-center mt-3">
+                <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle d-inline-flex justify-content-center align-items-center" href="#" id="themeDropdownMobile" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i id="currentThemeIconMobile" class="fas fa-circle-half-stroke me-2"></i>
+                    Theme
+                </a>
+                <ul class="dropdown-menu text-center mx-auto" aria-labelledby="themeDropdownMobile" style="min-width: 160px;">
+                    <li>
+                      <a class="dropdown-item d-flex justify-content-center align-items-center" href="#" onclick="setTheme('light')">
+                          <i class="fas fa-sun me-2 text-warning"></i> Light
+                      </a>
+                    </li>
+                    <li>
+                      <a class="dropdown-item d-flex justify-content-center align-items-center" href="#" onclick="setTheme('dark')">
+                          <i class="fas fa-moon me-2 text-primary"></i> Dark
+                      </a>
+                    </li>
+                </ul>
+                </li>
+            </ul>
+            <ul class="navbar-nav d-none d-md-flex ms-auto align-items-center me-3">
+                <!-- Nav Bar Icons Icons -->
+                <li>{% include 'partials/development_mode_banner.html' %}</li>
+                <!-- Theme switcher: desktop only -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="themeDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i id="currentThemeIcon" class="fas fa-circle-half-stroke me-2"></i>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="themeDropdown">
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center" href="#" onclick="setTheme('light')">
+                                <i class="fas fa-sun me-2 text-warning"></i> Light
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center" href="#" onclick="setTheme('dark')">
+                                <i class="fas fa-moon me-2 text-primary"></i> Dark
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <!-- End Theme switcher -->
+            </ul>
+          </div>
+        </nav>
+    </div>
+    {% endblock %}  
+    <main id="page-top">
+        {% block get_flashed_messages %}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="container mt-3">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+                </div>
+            {% endif %}
+            {% endwith %}
+        {% endblock %}
+        {% block content %}{% endblock %}
+    </main>
+    <footer class="py-4 mt-auto bg-black text-secondary">
+        <div class="container-fluid px-4">
+            <div class="d-flex align-items-center justify-content-between small">
+                <div>
+                  {% block license %}
+                    Open Source under the
+                    <a href="/license" class="text-secondary">MIT License</a>
+                  {% endblock %}
+                </div>
+                <div>
+                    <a href="https://github.com/lampapps" target="_blank" class="text-secondary">
+                        <i class="fa-brands fa-2x fa-github"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+    <!-- About Modal -->
+    <div class="modal fade" id="aboutModal" tabindex="-1" aria-labelledby="aboutModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" style="max-width: 350px;">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="aboutModalLabel">About</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body text-center">
+            <h4 class="mb-1">Just Another Backup Script (JABS)</h4>
+            <div class="mb-2 text-muted" style="font-size:1.1em;">
+              Version: <strong>{{ VERSION }}</strong>
+            </div>
+            <div class="mt-3">
+              <a href="https://github.com/lampapps" target="_blank" class="text-secondary" title="lampapps on GitHub">
+                <i class="fa-brands fa-github"></i> lampapps
+              </a>
+            </div>
+            <div class="mt-3">
+              <small>
+                Open Source under the
+                <a href="/license">MIT License</a>
+              </small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="https://kit.fontawesome.com/574ab0a1d4.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.0/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
+    <script src="https://cdn.datatables.net/v/bs5/jq-3.7.0/dt-2.2.2/b-3.2.2/b-print-3.2.2/fh-4.0.1/r-3.0.4/rg-1.5.1/datatables.min.js" integrity="sha384-autRjuodPpiE5ybZ+44Ci92xY6r02hRe3ljlAbbMxIS3zLv53YEbTll3Ljua7gmw" crossorigin="anonymous"></script>
+    {% block scripts %}
+    <script src="{{ url_for('static', filename='js/global.js') }}"></script>
+    {% endblock %}
+</body>
+</html>

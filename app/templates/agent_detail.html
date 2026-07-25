@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %} - {{ host.hostname }}{% endblock %}
+{% block top_scripts %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+
+    <div class="row pb-0 mt-4">
+        <div class="col-12">
+            <div class="d-flex align-items-center flex-wrap gap-2 mb-4">
+                <h2 class="mb-0 me-2"><i class="fa fa-server me-2"></i>{{ host.hostname }}</h2>
+                {% if host.status == 'online' %}
+                    <span class="badge bg-success">online</span>
+                {% else %}
+                    <span class="badge bg-warning">offline</span>
+                {% endif %}
+                {% if host.agent_type %}
+                    <span class="badge bg-primary">{{ host.agent_type }}</span>
+                {% endif %}
+                {% if host.agent_version %}
+                    <span class="badge bg-info">v{{ host.agent_version }}</span>
+                {% endif %}
+                <span class="text-muted small ms-2">
+                    <i class="fa fa-network-wired me-1"></i>{{ host.ip_address }}
+                </span>
+                <span class="text-muted small ms-2">
+                    <i class="fa fa-clock me-1"></i>Last heartbeat:
+                    {% if host.last_heartbeat %}{{ host.last_heartbeat|datetimeformat }}{% else %}never{% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="row pb-2">
+        <div class="col-6 col-md-4 col-xl-2 mb-3">
+            <div class="card stat-card text-center">
+                <div class="card-body py-2">
+                    <div class="fs-3 fw-bold">{{ totals.total_jobs or 0 }}</div>
+                    <div class="text-muted small text-uppercase">Total Jobs</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2 mb-3">
+            <div class="card stat-card text-center border-success">
+                <div class="card-body py-2">
+                    <div class="fs-3 fw-bold text-success">{{ (status_counts.success or 0) + (status_counts.completed or 0) }}</div>
+                    <div class="text-muted small text-uppercase">Success</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2 mb-3">
+            <div class="card stat-card text-center border-danger">
+                <div class="card-body py-2">
+                    <div class="fs-3 fw-bold text-danger">{{ (status_counts.error or 0) + (status_counts.failed or 0) }}</div>
+                    <div class="text-muted small text-uppercase">Errors</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2 mb-3">
+            <div class="card stat-card text-center border-secondary">
+                <div class="card-body py-2">
+                    <div class="fs-3 fw-bold text-secondary">{{ status_counts.skipped or 0 }}</div>
+                    <div class="text-muted small text-uppercase">Skipped</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2 mb-3">
+            <div class="card stat-card text-center border-info">
+                <div class="card-body py-2">
+                    <div class="fs-3 fw-bold text-info">{{ status_counts.running or 0 }}</div>
+                    <div class="text-muted small text-uppercase">Running</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2 mb-3">
+            <div class="card stat-card text-center">
+                <div class="card-body py-2">
+                    <div class="fs-3 fw-bold">{{ sizeof_fmt(totals.total_bytes or 0) }}</div>
+                    <div class="text-muted small text-uppercase">Data Processed</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="row pb-3">
+        <div class="col-md-4 mb-3 d-flex">
+            <div class="card flex-fill">
+                <div class="card-header"><i class="fa fa-chart-pie me-1"></i> Event Status Breakdown</div>
+                <div class="card-body d-flex align-items-center justify-content-center" style="height: 280px;">
+                    {% if status_counts %}
+                        <canvas id="statusChart"></canvas>
+                    {% else %}
+                        <span class="text-muted">No jobs reported yet.</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3 d-flex">
+            <div class="card flex-fill">
+                <div class="card-header"><i class="fa fa-layer-group me-1"></i> Backup Type Breakdown</div>
+                <div class="card-body d-flex align-items-center justify-content-center" style="height: 280px;">
+                    {% if type_counts %}
+                        <canvas id="typeChart"></canvas>
+                    {% else %}
+                        <span class="text-muted">No jobs reported yet.</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3 d-flex">
+            <div class="card flex-fill">
+                <div class="card-header"><i class="fa fa-info-circle me-1"></i> Summary</div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tbody>
+                            <tr>
+                                <td class="text-muted">Files Processed</td>
+                                <td class="text-end fw-semibold">{{ '{:,}'.format(totals.total_files or 0) }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Avg. Runtime</td>
+                                <td class="text-end fw-semibold">
+                                    {% if totals.avg_runtime %}
+                                        {{ (totals.avg_runtime // 60)|int }}m {{ (totals.avg_runtime % 60)|int }}s
+                                    {% else %}
+                                        &mdash;
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Last Run</td>
+                                <td class="text-end fw-semibold">
+                                    {% if totals.last_run %}{{ totals.last_run|datetimeformat }}{% else %}&mdash;{% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Notes</td>
+                                <td class="text-end">{{ host.notes or '—' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Trend -->
+    <div class="row pb-3">
+        <div class="col-12 mb-3 d-flex">
+            <div class="card flex-fill">
+                <div class="card-header"><i class="fa fa-chart-line me-1"></i> Job Activity (Last 30 Days)</div>
+                <div class="card-body" style="height: 260px;">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Jobs -->
+    <div class="row pb-4">
+        <div class="col-12 mb-3 d-flex">
+            <div class="card flex-fill">
+                <div class="card-header"><i class="fa fa-list me-1"></i> Recent Jobs</div>
+                <div class="card-body p-0">
+                    <table id="recentJobsTable" class="table table-striped table-bordered table-hover display responsive">
+                        <thead>
+                            <tr>
+                                <th>Start</th>
+                                <th>Job Name</th>
+                                <th>Type</th>
+                                <th>Options</th>
+                                <th>Status</th>
+                                <th>Runtime</th>
+                                <th>Files</th>
+                                <th>Bytes</th>
+                                <th>Message</th>
+                                <th>Backup Set ID</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/global.js') }}"></script>
+<script>
+    // Bootstrap data for static/js/agent_detail.js — kept minimal/inline since
+    // it's server-rendered data, not logic.
+    window.AGENT_DETAIL = {
+        hostId: {{ host.id|tojson }},
+        statusCounts: {{ status_counts|tojson }},
+        typeCounts: {{ type_counts|tojson }},
+        trendLabels: {{ trend_labels|tojson }},
+        trendData: {{ trend_data|tojson }}
+    };
+</script>
+<script src="{{ url_for('static', filename='js/agent_detail.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Dashboard Configuration{% endblock %}
+{% block top_scripts %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">Dashboard Configuration</h2>
+            <div class="text-muted small">Edit global.yaml for dashboard settings</div>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        {{ error }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-body">
+            <form id="configForm">
+                <div class="mb-3">
+                    <label class="form-label">Configuration (YAML)</label>
+                    <textarea class="form-control font-monospace" id="configContent" name="config" rows="20" style="font-size: 0.9em;">{{ config_content }}</textarea>
+                    <small class="text-muted">YAML syntax is validated before saving</small>
+                </div>
+                <div id="validationMessage" class="mb-3"></div>
+            </form>
+        </div>
+        <div class="card-footer d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-secondary" onclick="location.reload()">
+                <i class="fa fa-undo"></i> Discard Changes
+            </button>
+            <button type="button" class="btn btn-primary" onclick="saveConfig()">
+                <i class="fa fa-save"></i> Save Configuration
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+const configTextarea = document.getElementById('configContent');
+const validationMessage = document.getElementById('validationMessage');
+
+// Auto-validate YAML on change
+configTextarea.addEventListener('change', validateYaml);
+configTextarea.addEventListener('blur', validateYaml);
+
+function validateYaml() {
+    const content = configTextarea.value.trim();
+    if (!content) {
+        validationMessage.innerHTML = '<div class="alert alert-warning">Configuration cannot be empty</div>';
+        return false;
+    }
+
+    // Basic YAML validation (check for common errors)
+    try {
+        // This is a simple client-side check; full validation happens on server
+        if (content.includes(':\t') && !content.includes(': ')) {
+            validationMessage.innerHTML = '<div class="alert alert-warning">Warning: Using tabs instead of spaces in YAML</div>';
+            return false;
+        }
+        validationMessage.innerHTML = '<div class="alert alert-success">Configuration looks valid</div>';
+        return true;
+    } catch (e) {
+        validationMessage.innerHTML = '<div class="alert alert-danger">Invalid YAML: ' + e + '</div>';
+        return false;
+    }
+}
+
+function saveConfig() {
+    const content = configTextarea.value.trim();
+
+    if (!content) {
+        alert('Configuration cannot be empty');
+        return;
+    }
+
+    const data = {config: content};
+
+    fetch('{{ url_for("configuration.save_dashboard_config") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.success) {
+            validationMessage.innerHTML = '<div class="alert alert-success alert-dismissible fade show"><i class="fa fa-check-circle"></i> ' + result.message + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+            setTimeout(() => {
+                validationMessage.innerHTML = '';
+            }, 3000);
+        } else {
+            alert('Error: ' + result.error);
+            validationMessage.innerHTML = '<div class="alert alert-danger">' + result.error + '</div>';
+        }
+    })
+    .catch(e => {
+        alert('Error: ' + e);
+        validationMessage.innerHTML = '<div class="alert alert-danger">Network error: ' + e + '</div>';
+    });
+}
+
+// Initial validation
+validateYaml();
+</script>
+{% endblock %}
