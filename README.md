@@ -1,13 +1,13 @@
-# JABS Server
+# JABS Dashboard
 
-The central Flask dashboard for JABS (Just Another Backup System). The server does **not** run backups itself — it registers backup hosts, receives events from one or more [backup agents](../agents/backup_agent/README.md), and displays their status/history on a web dashboard.
+The central Flask dashboard for JABS (Just Another Backup Script). The dashboard does **not** run backups itself — it registers backup hosts, receives events from one or more backup agents, and displays their status/history on a web dashboard.
 
 This directory is fully standalone: its own `.env`, `.gitignore`, `venv/`, `requirements.txt`, and config. It can be deployed on its own machine, separate from any agent.
 
 ## Features
 
 * Web dashboard showing registered hosts, backup jobs, and events
-* Host management UI (`/hosts`) to add/edit/remove agents allowed to report in
+* Host management UI to add/edit/remove agents allowed to report in
 * Event ingestion API used by agents to report backup start/stage/complete
 * Log viewer, security/audit page, and dashboard configuration UI
 * SQLite storage (`data/jabs.sqlite`)
@@ -21,19 +21,19 @@ This directory is fully standalone: its own `.env`, `.gitignore`, `venv/`, `requ
 ## Setup
 
 ```bash
-cd server
-./jabs-server.sh setup   # creates venv, installs requirements
-./jabs-server.sh start   # starts the server
-./jabs-server.sh status
-./jabs-server.sh logs
-./jabs-server.sh stop
+cd dashboard
+./jabs-dashboard.sh setup   # creates venv, installs requirements
+./jabs-dashboard.sh start   # starts the server
+./jabs-dashboard.sh status
+./jabs-dashboard.sh logs
+./jabs-dashboard.sh stop
 ```
 
-`jabs-server.sh` is fully self-contained (no shared code with the agent launcher). It reads `ENV_MODE` from `.env` in this directory:
+`jabs-dashboard.sh` is fully self-contained (no shared code with the agent launcher). It reads `ENV_MODE` from `.env` in this directory:
 * `production` (default) → port 5000
 * `development` → port 5001
 
-Manual run (after `./jabs-server.sh setup`): `venv/bin/python run.py`
+Manual run (after `./jabs-dashboard.sh setup`): `venv/bin/python run.py`
 
 ## Configuration
 
@@ -48,9 +48,9 @@ Manual run (after `./jabs-server.sh setup`): `venv/bin/python run.py`
 
 Before an agent can report events, its hostname + IP must be registered on the server:
 
-1. Open the dashboard → **Hosts** (`/hosts`)
+1. Open the dashboard → Configuration → Hosts
 2. Add the agent's hostname and IP address
-3. Configure the agent's `JABS_SERVER_URL` (see agent README) to point at this server
+3. Configure the agent's `JABS_DASHBOARD_URL` (see agent README) to point at this server
 
 The server validates every incoming event against the registered hostname/IP pair (see `app/routes/agent_monitoring.py` and `app/models/hosts.py`) and rejects unregistered or mismatched hosts (`403`).
 
@@ -111,7 +111,7 @@ If nothing has completed since the last send, the script still updates its "last
 ## Directory Structure
 
 ```
-server/
+dashboard/
 ├── run.py                    # Flask entry point (waitress if available)
 ├── send_digest.py            # standalone digest-email sender, invoked by host cron
 ├── jabs-server.sh            # standalone setup/start/stop/status launcher
@@ -125,13 +125,6 @@ server/
 │   └── global-example.yaml
 ├── data/                      # jabs.sqlite
 └── logs/                      # server.log
-```
-
-## Testing
-
-```bash
-cd /home/jim/jabs_dev
-python3 -m unittest tests.test_server_api -v
 ```
 
 ## Logging
