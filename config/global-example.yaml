@@ -110,9 +110,9 @@ email:
   use_tls: true                       # true | false - Use TLS encryption
                                       # Recommended: true for security
 
-  # The server sends one digest email summarizing backup activity (successes
+  # The dashboard sends one digest email summarizing backup activity (successes
   # and failures) across all registered agents. Sending is triggered by the
-  # HOST's cron running send_digest.py -- see server/README.md for the
+  # HOST's cron running send_digest.py -- see README.md for the
   # recommended crontab entry. Per-event immediate notifications
   # (error/backup_complete) are sent by each backup agent itself, configured
   # in that agent's own config/global.yaml.

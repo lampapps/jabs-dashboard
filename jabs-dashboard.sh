@@ -1,15 +1,15 @@
 #!/bin/bash
 
 #################################################
-# JABS Server Standalone Launcher
+# JABS Dashboard Standalone Launcher
 #
 # This script handles setup, validation, and running
-# of the JABS Server (monitoring hub) with proper
+# of the JABS Dashboard (monitoring hub) with proper
 # environment management.
 #
 # Usage:
-#   jabs-server.sh {setup|start|stop|restart|status|logs}
-#   jabs-server.sh help
+#   jabs-dashboard.sh {setup|start|stop|restart|status|logs}
+#   jabs-dashboard.sh help
 #################################################
 
 # Configuration
@@ -60,7 +60,7 @@ print_warning() {
 }
 
 print_header() {
-    echo -e "${BLUE}[JABS Server]${NC} $1"
+    echo -e "${BLUE}[JABS Dashboard]${NC} $1"
 }
 
 print_section() {
@@ -282,7 +282,7 @@ show_logs() {
 
 # Setup server
 setup_server() {
-    print_section "JABS Server Setup"
+    print_section "JABS Dashboard Setup"
 
     check_python || return 1
     check_venv_module || return 1
@@ -312,7 +312,7 @@ setup_server() {
 # Show help
 show_help() {
     cat << EOF
-JABS Server Launcher
+JABS Dashboard Launcher
 
 USAGE:
   $0 {setup|start|stop|restart|status|logs|reset}
@@ -363,7 +363,7 @@ EOF
 
 # Reset app (clear database, logs, locks)
 reset_app() {
-    print_section "JABS Server Reset"
+    print_section "JABS Dashboard Reset"
 
     # Stop server if running
     if running_pid=$(is_running); then

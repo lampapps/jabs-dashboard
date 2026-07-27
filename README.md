@@ -46,13 +46,13 @@ Manual run (after `./jabs-dashboard.sh setup`): `venv/bin/python run.py`
 
 ## Registering a Host (Agent)
 
-Before an agent can report events, its hostname + IP must be registered on the server:
+Before an agent can report events, its hostname + IP must be registered on the dashboard:
 
 1. Open the dashboard → Configuration → Hosts
 2. Add the agent's hostname and IP address
-3. Configure the agent's `JABS_DASHBOARD_URL` (see agent README) to point at this server
+3. Configure the agent's `JABS_DASHBOARD_URL` (see agent README) to point at this dashboard
 
-The server validates every incoming event against the registered hostname/IP pair (see `app/routes/agent_monitoring.py` and `app/models/hosts.py`) and rejects unregistered or mismatched hosts (`403`).
+The dashboard validates every incoming event against the registered hostname/IP pair (see `app/routes/agent_monitoring.py` and `app/models/hosts.py`) and rejects unregistered or mismatched hosts (`403`).
 
 ## API
 
@@ -92,7 +92,7 @@ Payload fields (see `agents/backup_agent/monitoring_client.py` for the sender an
 
 ## Digest Email
 
-The server can send a periodic digest email summarizing backup activity (successes/failures) across all registered agents. Unlike per-event notifications (which are sent immediately by each backup agent — see the [agent README](../agents/backup_agent/README.md)), the server's digest only covers what's completed since the *last* digest send.
+The dashboard can send a periodic digest email summarizing backup activity (successes/failures) across all registered agents. Unlike per-event notifications (which are sent immediately by each backup agent — see the [agent README](../agents/backup_agent/README.md)), the dashboard's digest only covers what's completed since the *last* digest send.
 
 Sending is **not** scheduled in-process — there's no background thread or cron config in `global.yaml`. Instead, `send_digest.py` is a standalone script that sends the digest every time it's run, and the HOST's cron is what controls the timing/frequency. This keeps digest scheduling independent of whether the web server process is running, and mirrors how the backup agent's own scheduler is invoked externally by cron.
 
@@ -102,7 +102,7 @@ Sending is **not** scheduled in-process — there's no background thread or cron
    crontab -e
    ```
    ```cron
-   0 8 * * * cd /path/to/jabs_dev/server && venv/bin/python send_digest.py >> logs/digest_cron.log 2>&1
+   0 8 * * * cd /path/to/jabs_dev/dashboard && venv/bin/python send_digest.py >> logs/digest_cron.log 2>&1
    ```
 3. Each run queries `backup_jobs` for jobs completed since the last successful send (tracked in `data/digest_state.json`) and emails an HTML summary using `app/templates/email/digest_email.html`.
 
@@ -114,7 +114,7 @@ If nothing has completed since the last send, the script still updates its "last
 dashboard/
 ├── run.py                    # Flask entry point (waitress if available)
 ├── send_digest.py            # standalone digest-email sender, invoked by host cron
-├── jabs-server.sh            # standalone setup/start/stop/status launcher
+├── jabs-dashboard.sh            # standalone setup/start/stop/status launcher
 ├── app/
 │   ├── settings.py           # ENV_PATH, DB_PATH, CONFIG_DIR, LOG_DIR, VERSION
 │   ├── models/                # db_core.py (schema/init), hosts.py, backup_jobs.py, events.py

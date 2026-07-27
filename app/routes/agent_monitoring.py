@@ -1,7 +1,7 @@
 """API routes for agent monitoring: event reporting.
 
 Agents send events when backups start, progress, and complete.
-Server validates hostname + IP, then creates backup jobs and events.
+The dashboard validates hostname + IP, then creates backup jobs and events.
 """
 
 import time
@@ -111,12 +111,12 @@ def submit_event():
 
 @agent_monitoring_bp.route('/api/monitoring/sync-job-sets', methods=['POST'])
 def sync_job_sets():
-    """Reconcile server-side backup_jobs for a host+job with the agent's own DB.
+    """Reconcile dashboard-side backup_jobs for a host+job with the agent's own DB.
 
     Agents call this after rotating old backup sets out of their local database
     (see core/backup/common.rotate_backups). The agent sends the full list of
     backup_set_id values it still has locally for the job; any backup_jobs on
-    the server for that host+job whose backup_set_id is NOT in that list are
+    the dashboard for that host+job whose backup_set_id is NOT in that list are
     considered orphaned (rotated out on the agent) and are deleted here.
     """
     data = request.get_json()

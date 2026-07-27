@@ -159,7 +159,7 @@ def agent_detail(host_id):
 
     Shows aggregate event/status counts, backup-type breakdown, a 30-day
     activity trend, and a recent-jobs table — i.e. everything the agent
-    reports to the server for this host.
+    reports to the dashboard for this host.
     """
     with get_db_connection() as conn:
         c = conn.cursor()

@@ -1,10 +1,10 @@
-"""Standalone entry point for sending the JABS server's digest email.
+"""Standalone entry point for sending the JABS dashboard's digest email.
 
 This is intended to be invoked by the HOST's cron at whatever time/frequency
 the digest should go out (e.g. once daily). All scheduling is controlled by
 the crontab entry itself -- this script simply sends the digest, covering
 activity since the last successful send, every time it's run. See
-server/README.md for the recommended crontab entry.
+README.md for the recommended crontab entry.
 """
 
 from app import create_app

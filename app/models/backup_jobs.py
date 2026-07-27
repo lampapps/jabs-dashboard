@@ -127,7 +127,7 @@ def list_completed_jobs_since(since_ts):
     """List backup jobs that finished (completed/failed/skipped) since since_ts.
 
     Joins in the host's hostname for display purposes. Returns a list of dicts
-    ordered by completion time, oldest first. Used to build the server's daily
+    ordered by completion time, oldest first. Used to build the dashboard's daily
     email digest.
     """
     with get_db_connection() as conn:

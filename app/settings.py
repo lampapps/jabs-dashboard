@@ -12,7 +12,7 @@ VERSION = "v0.10.0"
 # --- Environment Configuration ---
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
-# Path to the .env file (server's root directory)
+# Path to the .env file (dashboard's root directory)
 ENV_PATH = os.path.abspath(os.path.join(BASE_DIR, '.env'))
 
 # Load environment variables

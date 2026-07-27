@@ -99,7 +99,7 @@ if __name__ == "__main__":
         primary_ip = get_local_ip()
         mode_info = f" ({env_mode.upper()} MODE)" if env_mode == "development" else ""
         print("\n" + "="*60)
-        print(f"JABS server is starting!{mode_info}")
+        print(f"JABS dashboard is starting!{mode_info}")
         print(f"Open your browser and go to: http://{local_ip}:{port}")
         if primary_ip != local_ip:
             print(f"Or try: http://{primary_ip}:{port}")
@@ -128,7 +128,7 @@ if __name__ == "__main__":
         primary_ip = get_local_ip()
         mode_info = f" ({env_mode.upper()} MODE)" if env_mode == "development" else ""
         print("\n" + "="*60)
-        print(f"JABS server is starting!{mode_info}")
+        print(f"JABS dashboard is starting!{mode_info}")
         print(f"Open your browser and go to: http://{local_ip}:{port}")
         if primary_ip != local_ip:
             print(f"Or try: http://{primary_ip}:{port}")

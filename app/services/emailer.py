@@ -1,9 +1,9 @@
-"""Email digest service for the JABS server.
+"""Email digest service for the JABS dashboard.
 
 Unlike the backup agent (which sends immediate error/backup_complete emails),
-the server only sends a periodic digest email summarizing backup activity
+the dashboard only sends a periodic digest email summarizing backup activity
 across all registered agents. The digest is rendered from an HTML template
-and sent whenever the HOST's cron invokes send_digest.py (see server/README.md).
+and sent whenever the HOST's cron invokes send_digest.py (see README.md).
 """
 
 import json
