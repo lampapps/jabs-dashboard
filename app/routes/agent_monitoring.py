@@ -1,12 +1,13 @@
 """API routes for agent monitoring: event reporting.
 
 Agents send events when backups start, progress, and complete.
-The dashboard validates hostname + IP, then creates backup jobs and events.
+Each agent authenticates with a unique API key (sent via the `X-API-Key`
+header), which the dashboard looks up to identify the host/agent record.
 """
 
 import time
 from flask import Blueprint, jsonify, request
-from app.models.hosts import get_host_by_hostname, update_heartbeat, update_agent_version, update_agent_type
+from app.models.hosts import get_host_by_agent_key, update_heartbeat, update_agent_version, update_agent_type
 from app.models.backup_jobs import (
     create_backup_job, get_backup_job_by_run_id, finalize_backup_job, update_backup_job,
     delete_orphaned_backup_jobs
@@ -16,13 +17,35 @@ from app.models.events import create_event
 agent_monitoring_bp = Blueprint('agent_monitoring', __name__)
 
 
+def _authenticate_agent():
+    """Look up the requesting agent by its API key.
+
+    Returns (host_dict, None) on success, or (None, (json_response, status))
+    on failure, so callers can `return error` directly.
+    """
+    agent_key = request.headers.get('X-API-Key', '').strip()
+    if not agent_key:
+        return None, (jsonify({"error": "Missing API key (X-API-Key header)"}), 401)
+
+    host = get_host_by_agent_key(agent_key)
+    if not host:
+        return None, (jsonify({"error": "Invalid API key"}), 403)
+
+    if not host['enabled']:
+        return None, (jsonify({"error": f"Host '{host['hostname']}' is disabled"}), 403)
+
+    return host, None
+
+
 @agent_monitoring_bp.route('/api/monitoring/events', methods=['POST'])
 def submit_event():
     """Submit an event from a backup agent."""
+    host, error = _authenticate_agent()
+    if error:
+        return error
+
     data = request.get_json()
 
-    hostname = data.get('hostname', '').strip()
-    ip_address = data.get('ip_address', '').strip()
     job_name = data.get('job_name', '').strip()
     run_id = data.get('run_id', '').strip()
     backup_set_id = data.get('backup_set_id', '').strip()
@@ -31,18 +54,7 @@ def submit_event():
     event_type = data.get('event_type', '').strip()
     message = data.get('message', '').strip()
 
-    if not hostname or not ip_address:
-        return jsonify({"error": "Missing required fields: hostname, ip_address"}), 400
-
-    # Step 1: Validate host is registered and IP matches
-    host = get_host_by_hostname(hostname)
-    if not host:
-        return jsonify({"error": f"Host '{hostname}' not registered"}), 403
-
-    if host['ip_address'] != ip_address:
-        return jsonify({"error": f"IP address mismatch for host '{hostname}'"}), 403
-
-    # Step 2: Update host heartbeat and agent version
+    # Step 1: Update host heartbeat and reported version/type
     update_heartbeat(host['id'])
     if data.get('version'):
         update_agent_version(host['id'], data.get('version'))
@@ -121,23 +133,18 @@ def sync_job_sets():
     """
     data = request.get_json()
 
-    hostname = data.get('hostname', '').strip()
-    ip_address = data.get('ip_address', '').strip()
     job_name = data.get('job_name', '').strip()
     active_backup_set_ids = data.get('active_backup_set_ids', [])
 
-    if not hostname or not ip_address or not job_name:
-        return jsonify({"error": "Missing required fields: hostname, ip_address, job_name"}), 400
+    if not job_name:
+        return jsonify({"error": "Missing required field: job_name"}), 400
 
     if not isinstance(active_backup_set_ids, list):
         return jsonify({"error": "active_backup_set_ids must be a list"}), 400
 
-    host = get_host_by_hostname(hostname)
-    if not host:
-        return jsonify({"error": f"Host '{hostname}' not registered"}), 403
-
-    if host['ip_address'] != ip_address:
-        return jsonify({"error": f"IP address mismatch for host '{hostname}'"}), 403
+    host, error = _authenticate_agent()
+    if error:
+        return error
 
     try:
         deleted_count = delete_orphaned_backup_jobs(host['id'], job_name, active_backup_set_ids)

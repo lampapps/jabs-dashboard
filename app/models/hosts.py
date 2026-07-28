@@ -1,20 +1,26 @@
-"""Model for managing hosts (registered backup machines)."""
+"""Model for managing hosts (registered agents).
+
+Each row represents one agent instance, identified by a unique `agent_key`
+that the agent sends on every API call. Multiple agents can share the same
+`hostname`/`ip_address` (e.g. several agents running on one machine).
+"""
 
 import time
-from app.models.db_core import get_db_connection
+from app.models.db_core import get_db_connection, generate_agent_key
 
 
 def create_host(hostname, ip_address, notes=""):
-    """Create a new registered host. Returns host id."""
+    """Create a new registered agent. Returns (host_id, agent_key)."""
+    agent_key = generate_agent_key()
     with get_db_connection() as conn:
         c = conn.cursor()
         now = time.time()
         c.execute("""
-            INSERT INTO hosts (hostname, ip_address, notes, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?)
-        """, (hostname, ip_address, notes, now, now))
+            INSERT INTO hosts (hostname, ip_address, agent_key, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (hostname, ip_address, agent_key, notes, now, now))
         conn.commit()
-        return c.lastrowid
+        return c.lastrowid, agent_key
 
 
 def get_host(host_id):
@@ -27,12 +33,39 @@ def get_host(host_id):
 
 
 def get_host_by_hostname(hostname):
-    """Get host by hostname. Returns host dict or None."""
+    """Get host by hostname. Returns host dict or None.
+
+    Note: hostname is not unique (multiple agents may share a machine), so
+    this returns the first match only. Prefer get_host_by_agent_key() for
+    authenticating API requests.
+    """
     with get_db_connection() as conn:
         c = conn.cursor()
         c.execute("SELECT * FROM hosts WHERE hostname = ?", (hostname,))
         row = c.fetchone()
         return dict(row) if row else None
+
+
+def get_host_by_agent_key(agent_key):
+    """Get host by its unique agent_key. Returns host dict or None."""
+    if not agent_key:
+        return None
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT * FROM hosts WHERE agent_key = ?", (agent_key,))
+        row = c.fetchone()
+        return dict(row) if row else None
+
+
+def regenerate_agent_key(host_id):
+    """Generate and store a new agent_key for a host. Returns the new key, or None if host not found."""
+    new_key = generate_agent_key()
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        now = time.time()
+        c.execute("UPDATE hosts SET agent_key = ?, updated_at = ? WHERE id = ?", (new_key, now, host_id))
+        conn.commit()
+        return new_key if c.rowcount > 0 else None
 
 
 def list_hosts():

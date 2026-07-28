@@ -21,7 +21,9 @@ def manage_hosts():
 
 @configuration_bp.route('/hosts/add', methods=['POST'])
 def add_host():
-    """Register a new host."""
+    """Register a new agent. Multiple agents may share the same hostname/IP
+    (e.g. several agents on one machine) since each gets its own unique API key.
+    """
     try:
         data = request.get_json()
         hostname = data.get('hostname', '').strip()
@@ -31,13 +33,13 @@ def add_host():
         if not hostname or not ip_address:
             return jsonify({'success': False, 'error': 'Hostname and IP address required'}), 400
 
-        # Check for duplicate hostname
-        existing = hosts.get_host_by_hostname(hostname)
-        if existing:
-            return jsonify({'success': False, 'error': f'Host "{hostname}" already registered'}), 400
-
-        host_id = hosts.create_host(hostname, ip_address, notes)
-        return jsonify({'success': True, 'host_id': host_id, 'message': f'Host "{hostname}" registered'}), 201
+        host_id, agent_key = hosts.create_host(hostname, ip_address, notes)
+        return jsonify({
+            'success': True,
+            'host_id': host_id,
+            'agent_key': agent_key,
+            'message': f'Host "{hostname}" registered'
+        }), 201
 
     except Exception as e:
         current_app.logger.error(f"Error adding host: {e}")
@@ -58,12 +60,6 @@ def edit_host(host_id):
         notes = data.get('notes')
         enabled = data.get('enabled')
 
-        # Validate hostname uniqueness if changing
-        if hostname and hostname != host['hostname']:
-            existing = hosts.get_host_by_hostname(hostname)
-            if existing:
-                return jsonify({'success': False, 'error': f'Hostname "{hostname}" already in use'}), 400
-
         success = hosts.update_host(host_id, hostname=hostname, ip_address=ip_address, notes=notes, enabled=enabled)
         if success:
             return jsonify({'success': True, 'message': 'Host updated'}), 200
@@ -72,6 +68,22 @@ def edit_host(host_id):
 
     except Exception as e:
         current_app.logger.error(f"Error editing host: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@configuration_bp.route('/hosts/<int:host_id>/regenerate-key', methods=['POST'])
+def regenerate_host_key(host_id):
+    """Generate a new API key for a host, invalidating the old one."""
+    try:
+        host = hosts.get_host(host_id)
+        if not host:
+            return jsonify({'success': False, 'error': 'Host not found'}), 404
+
+        new_key = hosts.regenerate_agent_key(host_id)
+        return jsonify({'success': True, 'agent_key': new_key, 'message': 'API key regenerated'}), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error regenerating agent key: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
