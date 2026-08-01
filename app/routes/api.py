@@ -152,6 +152,7 @@ def get_backup_sets():
                 SELECT
                     bj.backup_set_id,
                     bj.backup_set_name,
+                    h.id AS host_id,
                     h.hostname,
                     bj.job_name,
                     bj.status,
@@ -180,6 +181,7 @@ def get_backup_sets():
                         'backup_set_id': set_id,
                         'backup_set_name': row['backup_set_name'] or set_id,
                         'host': row['hostname'] or '',
+                        'host_id': row['host_id'],
                         'job_name': row['job_name'] or '',
                         'start_time': row['started_at'],
                         'last_activity': row['completed_at'] or row['started_at'],
@@ -211,6 +213,7 @@ def get_backup_sets():
                     'backup_set_id': set_id,
                     'backup_set_name': entry['backup_set_name'],
                     'host': entry['host'],
+                    'host_id': entry['host_id'],
                     'job_name': entry['job_name'],
                     'start_time': datetime.fromtimestamp(entry['start_time']).strftime('%Y-%m-%d %H:%M:%S') if entry['start_time'] else '',
                     'last_event_time': datetime.fromtimestamp(last_activity).strftime('%Y-%m-%d %H:%M:%S') if last_activity else '',

@@ -185,7 +185,7 @@
     // inline since it's server-rendered data, not logic.
     window.DASHBOARD_TREND = {
         trendLabels: {{ trend_labels|tojson }},
-        trendData: {{ trend_data|tojson }}
+        trendDatasets: {{ trend_datasets|tojson }}
     };
 </script>
 <script src="{{ url_for('static', filename='js/index.js') }}"></script>

@@ -79,6 +79,52 @@ def _get_agents_summary():
         agents = []
     return agents
 
+def _get_daily_status_trend(cursor, host_id=None):
+    """Return a 30-day, zero-filled, per-status daily job-count breakdown.
+
+    Returns (trend_labels, trend_datasets) where trend_datasets is a dict of
+    {status: [count_per_day, ...]} aligned with trend_labels, for rendering
+    a status-segmented (stacked) Job Activity bar chart.
+    """
+    thirty_days_ago = time.time() - 86400 * 30
+    if host_id is None:
+        cursor.execute("""
+            SELECT date(started_at, 'unixepoch') as day,
+                   COALESCE(status, 'unknown') as status,
+                   COUNT(*) as count
+            FROM backup_jobs
+            WHERE started_at > ?
+            GROUP BY day, status
+        """, (thirty_days_ago,))
+    else:
+        cursor.execute("""
+            SELECT date(started_at, 'unixepoch') as day,
+                   COALESCE(status, 'unknown') as status,
+                   COUNT(*) as count
+            FROM backup_jobs
+            WHERE host_id = ? AND started_at > ?
+            GROUP BY day, status
+        """, (host_id, thirty_days_ago))
+
+    daily_status_counts = {}
+    statuses_seen = set()
+    for row in cursor.fetchall():
+        daily_status_counts.setdefault(row['day'], {})[row['status']] = row['count']
+        statuses_seen.add(row['status'])
+
+    trend_labels = []
+    for i in range(29, -1, -1):
+        day = datetime.fromtimestamp(time.time() - 86400 * i).strftime('%Y-%m-%d')
+        trend_labels.append(day)
+
+    trend_datasets = {
+        status: [daily_status_counts.get(day, {}).get(status, 0) for day in trend_labels]
+        for status in sorted(statuses_seen)
+    }
+
+    return trend_labels, trend_datasets
+
+
 def _get_global_stats():
     """Query aggregate backup_jobs totals/status counts and a 30-day activity
     trend across all registered agents, for the dashboard's Stat Cards and
@@ -106,29 +152,17 @@ def _get_global_stats():
         """)
         totals = dict(c.fetchone())
 
-        # 30-day activity trend (continuous series, zero-filled for empty days)
-        thirty_days_ago = time.time() - 86400 * 30
-        c.execute("""
-            SELECT date(started_at, 'unixepoch') as day, COUNT(*) as count
-            FROM backup_jobs
-            WHERE started_at > ?
-            GROUP BY day
-        """, (thirty_days_ago,))
-        daily_counts = {row['day']: row['count'] for row in c.fetchall()}
-        trend_labels = []
-        trend_data = []
-        for i in range(29, -1, -1):
-            day = datetime.fromtimestamp(time.time() - 86400 * i).strftime('%Y-%m-%d')
-            trend_labels.append(day)
-            trend_data.append(daily_counts.get(day, 0))
+        # 30-day activity trend, segmented by status (continuous series,
+        # zero-filled for empty days) — powers the stacked Activity Trend chart.
+        trend_labels, trend_datasets = _get_daily_status_trend(c)
 
-    return status_counts, totals, trend_labels, trend_data
+    return status_counts, totals, trend_labels, trend_datasets
 
 @dashboard_bp.route("/")
 def dashboard():
     """Render the dashboard with connected backup agents and their statuses."""
     agents = _get_agents_summary()
-    status_counts, totals, trend_labels, trend_data = _get_global_stats()
+    status_counts, totals, trend_labels, trend_datasets = _get_global_stats()
 
     with open('config/global.yaml', encoding="utf-8") as f:
         global_config = yaml.safe_load(f)
@@ -143,7 +177,7 @@ def dashboard():
         status_counts=status_counts,
         totals=totals,
         trend_labels=trend_labels,
-        trend_data=trend_data,
+        trend_datasets=trend_datasets,
         sizeof_fmt=sizeof_fmt
     )
 
@@ -208,21 +242,9 @@ def agent_detail(host_id):
         """, (host_id,))
         totals = dict(c.fetchone())
 
-        # 30-day activity trend (continuous series, zero-filled for empty days)
-        thirty_days_ago = time.time() - 86400 * 30
-        c.execute("""
-            SELECT date(started_at, 'unixepoch') as day, COUNT(*) as count
-            FROM backup_jobs
-            WHERE host_id = ? AND started_at > ?
-            GROUP BY day
-        """, (host_id, thirty_days_ago))
-        daily_counts = {row['day']: row['count'] for row in c.fetchall()}
-        trend_labels = []
-        trend_data = []
-        for i in range(29, -1, -1):
-            day = datetime.fromtimestamp(time.time() - 86400 * i).strftime('%Y-%m-%d')
-            trend_labels.append(day)
-            trend_data.append(daily_counts.get(day, 0))
+        # 30-day activity trend, segmented by status (continuous series,
+        # zero-filled for empty days) — powers the stacked Activity Trend chart.
+        trend_labels, trend_datasets = _get_daily_status_trend(c, host_id=host_id)
 
         # Recent jobs are now fetched client-side via /api/agent_jobs/<host_id>
         # for the DataTables-driven Recent Jobs table on agent_detail.html.
@@ -234,7 +256,7 @@ def agent_detail(host_id):
         type_counts=type_counts,
         totals=totals,
         trend_labels=trend_labels,
-        trend_data=trend_data,
+        trend_datasets=trend_datasets,
         sizeof_fmt=sizeof_fmt,
         env_mode=ENV_MODE
     )
@@ -251,19 +273,6 @@ def documentation():
         markdown_renderer = mistune.create_markdown(renderer=mistune.HTMLRenderer())
         content = Markup(markdown_renderer(md_content))
     return render_template("documentation.html", content=content, env_mode=ENV_MODE)
-
-@dashboard_bp.route("/change_log")
-def change_log():
-    """Render the documentation page from CHANGELOG.md."""
-    changelog_path = os.path.join(BASE_DIR, "CHANGELOG.md")
-    if not os.path.exists(changelog_path):
-        content = "<CHANGELOG.md not found.</p>"
-    else:
-        with open(changelog_path, "r", encoding="utf-8") as f:
-            md_content = f.read()
-        markdown_renderer = mistune.create_markdown(renderer=mistune.HTMLRenderer())
-        content = Markup(markdown_renderer(md_content))
-    return render_template("change_log.html", content=content, env_mode=ENV_MODE)
 
 @dashboard_bp.route("/license")
 def license_page():

@@ -14,13 +14,21 @@ $(document).ready(function () {
                 // Displays the human-friendly backup_set_name, but the
                 // underlying backup_set_id (unique across hosts/jobs) is
                 // used for sorting/searching via the render's 'sort'/'filter' types.
+                // Links to the matching group in that host's agent_detail
+                // Recent Jobs table so the user can jump straight to the
+                // full run history for this set.
                 data: 'backup_set_name',
                 title: 'Backup Set ID',
                 render: function (data, type, row) {
                     if (type === 'sort' || type === 'filter') {
                         return row.backup_set_id || data || '';
                     }
-                    return data || '';
+                    const label = data || '';
+                    if (row.host_id) {
+                        const url = `/agents/${row.host_id}?set=${encodeURIComponent(label)}`;
+                        return `<a href="${url}">${label}</a>`;
+                    }
+                    return label;
                 }
             },
             { data: 'host', title: 'Host' },
@@ -422,12 +430,13 @@ $(document).ready(function () {
     }
 
     // Activity Trend chart (all agents, last 30 days) — data is bootstrapped
-    // server-side into window.DASHBOARD_TREND (see index.html).
+    // server-side into window.DASHBOARD_TREND (see index.html). Segmented
+    // (stacked) by job status.
     let trendChart = null;
     function initializeTrendChart() {
         const trend = window.DASHBOARD_TREND || {};
         const trendLabels = trend.trendLabels || [];
-        const trendData = trend.trendData || [];
+        const trendDatasets = trend.trendDatasets || {};
         const canvas = document.getElementById('trendChart');
         if (!canvas) return;
 
@@ -435,21 +444,25 @@ $(document).ready(function () {
             trendChart.destroy();
         }
 
+        const trendStatuses = Object.keys(trendDatasets);
         trendChart = new Chart(canvas, {
             type: 'bar',
             data: {
                 labels: trendLabels,
-                datasets: [{
-                    label: 'Jobs per day',
-                    data: trendData,
-                    backgroundColor: '#0d6efd'
-                }]
+                datasets: trendStatuses.map(status => ({
+                    label: status,
+                    data: trendDatasets[status],
+                    backgroundColor: getStatusChartColor(status)
+                }))
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                plugins: { legend: { display: trendStatuses.length > 1, position: 'bottom' } },
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+                }
             }
         });
     }

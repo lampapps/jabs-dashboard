@@ -52,22 +52,22 @@
                   Dashboard
                 </a>
               </li>
+              <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'configuration.manage_hosts' %}active{% endif %}" href="{{ url_for('configuration.manage_hosts') }}">
+                  Agents
+                </a>
+              </li>
               <li class="nav-item dropdown
-                  {% if request.endpoint in ['configuration.manage_hosts', 'configuration.edit_dashboard_config', 'security.security'] %}active{% endif %}">
+                  {% if request.endpoint in ['configuration.edit_dashboard_config', 'security.security'] %}active{% endif %}">
                 <a class="nav-link dropdown-toggle
-                  {% if request.endpoint in ['configuration.manage_hosts', 'configuration.edit_dashboard_config', 'security.security'] %}active{% endif %}"
+                  {% if request.endpoint in ['configuration.edit_dashboard_config', 'security.security'] %}active{% endif %}"
                   href="#" id="configDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                   Configuration
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="configDropdown">
                   <li>
-                    <a class="dropdown-item {% if request.endpoint == 'configuration.manage_hosts' %}active{% endif %}" href="{{ url_for('configuration.manage_hosts') }}">
-                      <i class="fas fa-server me-1"></i> Hosts
-                    </a>
-                  </li>
-                  <li>
                     <a class="dropdown-item {% if request.endpoint == 'configuration.edit_dashboard_config' %}active{% endif %}" href="{{ url_for('configuration.edit_dashboard_config') }}">
-                      <i class="fas fa-cogs me-1"></i> Dashboard Config
+                      <i class="fas fa-cogs me-1"></i> Dashboard
                     </a>
                   </li>
                   <li>
@@ -88,11 +88,6 @@
                   <li>
                     <a class="dropdown-item {% if request.endpoint == 'dashboard.documentation' %}active{% endif %}" href="{{ url_for('dashboard.documentation') }}">
                       <i class="fas fa-book me-1"></i> Documentation
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item {% if request.endpoint == 'dashboard.change_log' %}active{% endif %}" href="{{ url_for('dashboard.change_log') }}">
-                      <i class="fas fa-book me-1"></i> Change Log
                     </a>
                   </li>
                   <li>

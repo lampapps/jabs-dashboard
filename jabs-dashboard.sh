@@ -25,6 +25,7 @@ fi
 VENV_PATH="$SCRIPT_DIR/venv"
 PYTHON_VENV="$VENV_PATH/bin/python"
 RUN_SCRIPT="$SCRIPT_DIR/run.py"
+DIGEST_SCRIPT="$SCRIPT_DIR/send_digest.py"
 PID_FILE="$SCRIPT_DIR/jabs_server.pid"
 LOG_FILE="$SCRIPT_DIR/logs/server.log"
 
@@ -309,6 +310,20 @@ setup_server() {
     fi
 }
 
+# Print ready-to-copy commands for running the server and digest email on
+# this host, using this machine's actual paths (including the venv
+# interpreter) so they can be pasted directly into a terminal.
+print_copy_paste_commands() {
+    echo "COPY/PASTE COMMANDS (this host):"
+    echo ""
+    echo "  Run server in foreground (not via $0 start):"
+    echo "    $PYTHON_VENV $RUN_SCRIPT"
+    echo ""
+    echo "  Send the digest email manually:"
+    echo "    $PYTHON_VENV $DIGEST_SCRIPT"
+    echo ""
+}
+
 # Show help
 show_help() {
     cat << EOF
@@ -359,6 +374,7 @@ EXAMPLES:
   $0 reset
 
 EOF
+    print_copy_paste_commands
 }
 
 # Reset app (clear database, logs, locks)

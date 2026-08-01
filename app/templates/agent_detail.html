@@ -179,6 +179,7 @@
                                 <th>Bytes</th>
                                 <th>Message</th>
                                 <th>Backup Set ID</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -202,7 +203,7 @@
         statusCounts: {{ status_counts|tojson }},
         typeCounts: {{ type_counts|tojson }},
         trendLabels: {{ trend_labels|tojson }},
-        trendData: {{ trend_data|tojson }}
+        trendDatasets: {{ trend_datasets|tojson }}
     };
 </script>
 <script src="{{ url_for('static', filename='js/agent_detail.js') }}"></script>

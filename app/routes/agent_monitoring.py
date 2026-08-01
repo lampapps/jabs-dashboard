@@ -10,7 +10,7 @@ from flask import Blueprint, jsonify, request
 from app.models.hosts import get_host_by_agent_key, update_heartbeat, update_agent_version, update_agent_type
 from app.models.backup_jobs import (
     create_backup_job, get_backup_job_by_run_id, finalize_backup_job, update_backup_job,
-    delete_orphaned_backup_jobs
+    delete_orphaned_backup_jobs, delete_old_backup_jobs
 )
 from app.models.events import create_event
 
@@ -151,4 +151,45 @@ def sync_job_sets():
         return jsonify({"success": True, "deleted_jobs": deleted_count}), 200
     except Exception as e:
         return jsonify({"error": f"Failed to sync job sets: {str(e)}"}), 500
+
+
+@agent_monitoring_bp.route('/api/monitoring/purge-old-jobs', methods=['POST'])
+def purge_old_jobs():
+    """Purge dashboard-side backup_jobs older than a retention window.
+
+    For agents that don't do their own set-based rotation like
+    file_backup_agent (see sync_job_sets above) — e.g. nas_sync_agent, which
+    keeps one ongoing mirror job per pair rather than dated sets — this lets
+    the agent simply say "keep the last N days of job records" (matching a
+    config value like nas_sync_agent's LOG_RETENTION_DAYS).
+
+    Only finished jobs (with a completed_at) are ever purged this way.
+
+    Request body:
+        retention_days (int, required) — delete completed jobs older than this
+        job_name (str, optional)       — restrict to a single job name;
+                                          omit to apply to all of the host's jobs
+    """
+    data = request.get_json()
+
+    retention_days = data.get('retention_days')
+    job_name = (data.get('job_name') or '').strip() or None
+
+    try:
+        retention_days = int(retention_days)
+    except (TypeError, ValueError):
+        return jsonify({"error": "retention_days must be an integer"}), 400
+
+    if retention_days <= 0:
+        return jsonify({"error": "retention_days must be a positive integer"}), 400
+
+    host, error = _authenticate_agent()
+    if error:
+        return error
+
+    try:
+        deleted_count = delete_old_backup_jobs(host['id'], retention_days, job_name)
+        return jsonify({"success": True, "deleted_jobs": deleted_count}), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to purge old jobs: {str(e)}"}), 500
 

@@ -173,3 +173,39 @@ def delete_orphaned_backup_jobs(host_id, job_name, active_backup_set_ids):
         c.execute(f"DELETE FROM backup_jobs WHERE id IN ({orphan_placeholders})", orphaned_ids)
         conn.commit()
         return c.rowcount
+
+
+def delete_old_backup_jobs(host_id, retention_days, job_name=None):
+    """Delete completed backup jobs for a host older than retention_days.
+
+    For agents that don't do their own set-based rotation like
+    file_backup_agent (see delete_orphaned_backup_jobs above), this lets the
+    agent simply tell the dashboard to keep only the last N days of job
+    records (e.g. nas_sync_agent's LOG_RETENTION_DAYS).
+
+    Only finished jobs (completed_at set) are eligible — a job still
+    "running" is never purged this way. If job_name is omitted, applies to
+    all of the host's jobs.
+
+    Returns the number of backup_jobs rows deleted (cascades to events).
+    """
+    if not retention_days or retention_days <= 0:
+        return 0
+
+    cutoff = time.time() - (retention_days * 86400)
+
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        if job_name:
+            c.execute("""
+                DELETE FROM backup_jobs
+                WHERE host_id = ? AND job_name = ? AND completed_at IS NOT NULL AND completed_at < ?
+            """, (host_id, job_name, cutoff))
+        else:
+            c.execute("""
+                DELETE FROM backup_jobs
+                WHERE host_id = ? AND completed_at IS NOT NULL AND completed_at < ?
+            """, (host_id, cutoff))
+        conn.commit()
+        return c.rowcount
+

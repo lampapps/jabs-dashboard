@@ -68,6 +68,21 @@ function renderStatusSummaryPills(statusCounts) {
 }
 // --- End Shared Status Summary Pills Renderer ---
 
+// --- Shared Status Chart Color Mapping (used by Job Activity trend charts) ---
+function getStatusChartColor(status) {
+  const colors = {
+    success: '#198754',
+    completed: '#198754',
+    error: '#dc3545',
+    failed: '#dc3545',
+    skipped: '#6c757d',
+    running: '#0dcaf0',
+    unknown: '#adb5bd'
+  };
+  return colors[(status || '').toLowerCase()] || '#0d6efd';
+}
+// --- End Shared Status Chart Color Mapping ---
+
 
 $(document).ready(function () { // Ensure DOM is ready
 

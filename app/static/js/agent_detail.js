@@ -23,15 +23,7 @@ function initializeAgentDetailCharts(detail) {
     const statusCounts = detail.statusCounts || {};
     const typeCounts = detail.typeCounts || {};
     const trendLabels = detail.trendLabels || [];
-    const trendData = detail.trendData || [];
-
-    const statusColors = {
-        success: '#198754', completed: '#198754',
-        error: '#dc3545', failed: '#dc3545',
-        skipped: '#6c757d',
-        running: '#0dcaf0',
-        unknown: '#adb5bd'
-    };
+    const trendDatasets = detail.trendDatasets || {};
 
     const statusLabels = Object.keys(statusCounts);
     if (statusLabels.length) {
@@ -41,7 +33,7 @@ function initializeAgentDetailCharts(detail) {
                 labels: statusLabels,
                 datasets: [{
                     data: statusLabels.map(k => statusCounts[k]),
-                    backgroundColor: statusLabels.map(k => statusColors[k] || '#0d6efd')
+                    backgroundColor: statusLabels.map(k => getStatusChartColor(k))
                 }]
             },
             options: {
@@ -73,21 +65,26 @@ function initializeAgentDetailCharts(detail) {
         });
     }
 
+    // Job Activity trend, segmented (stacked) by status.
+    const trendStatuses = Object.keys(trendDatasets);
     new Chart(document.getElementById('trendChart'), {
         type: 'bar',
         data: {
             labels: trendLabels,
-            datasets: [{
-                label: 'Jobs per day',
-                data: trendData,
-                backgroundColor: '#0d6efd'
-            }]
+            datasets: trendStatuses.map(status => ({
+                label: status,
+                data: trendDatasets[status],
+                backgroundColor: getStatusChartColor(status)
+            }))
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+            plugins: { legend: { display: trendStatuses.length > 1, position: 'bottom' } },
+            scales: {
+                x: { stacked: true },
+                y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+            }
         }
     });
 }
@@ -146,10 +143,18 @@ function initializeRecentJobsTable(hostId) {
                 render: function (data) {
                     return renderStatusBadge(data);
                 }
+            },
+            {
+                data: 'id',
+                title: '',
+                orderable: false,
+                render: function (data) {
+                    return `<button type="button" class="btn btn-sm btn-outline-danger delete-job-btn" data-job-id="${data}" title="Delete this job record"><i class="fa fa-trash"></i></button>`;
+                }
             }
         ],
         columnDefs: [
-            { targets: [2, 5, 6, 9], className: 'text-center' },
+            { targets: [2, 5, 6, 9, 10], className: 'text-center' },
             { targets: [7, 8], className: 'text-end' }
         ],
         lengthMenu: [[25, 50, 75, 100], [25, 50, 75, 100]],
@@ -186,6 +191,51 @@ function initializeRecentJobsTable(hostId) {
             emptyTable: "No jobs reported by this agent yet."
         }
     });
+
+    $('#recentJobsTable tbody').on('click', '.delete-job-btn', function () {
+        const jobId = $(this).data('job-id');
+        if (!confirm('Delete this job record? This cannot be undone.')) {
+            return;
+        }
+        fetch('/api/backup_jobs/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: [jobId] })
+        })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    recentJobsTable.ajax.reload(null, false);
+                } else {
+                    alert('Failed to delete job: ' + (result.error || 'unknown error'));
+                }
+            })
+            .catch(err => {
+                alert('Failed to delete job: ' + err);
+            });
+    });
+
+    // Deep-link support: if the page was opened with ?set=<backup_set_name>
+    // (from index.html's eventsTable "Backup Set ID" links), filter the
+    // table down to just that backup set's rows and scroll to them.
+    const setParam = new URLSearchParams(window.location.search).get('set');
+    if (setParam) {
+        recentJobsTable.one('draw', function () {
+            const escaped = setParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            recentJobsTable.column(4).search(`^${escaped}$`, true, false).draw();
+            setTimeout(function () {
+                const rowNode = recentJobsTable.column(4).nodes().to$().filter(function () {
+                    return $(this).text() === setParam;
+                }).closest('tr')[0];
+                if (rowNode) {
+                    rowNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    $(rowNode).addClass('table-active');
+                }
+            }, 100);
+        });
+    }
+
+    return recentJobsTable;
 }
 
 document.addEventListener('DOMContentLoaded', function () {
