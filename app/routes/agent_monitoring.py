@@ -2,12 +2,12 @@
 
 Agents send events when backups start, progress, and complete.
 Each agent authenticates with a unique API key (sent via the `X-API-Key`
-header), which the dashboard looks up to identify the host/agent record.
+header), which the dashboard looks up to identify the agent record.
 """
 
 import time
 from flask import Blueprint, jsonify, request
-from app.models.hosts import get_host_by_agent_key, update_heartbeat, update_agent_version, update_agent_type
+from app.models.agents import get_agent_by_agent_key, update_heartbeat, update_agent_version, update_agent_type
 from app.models.backup_jobs import (
     create_backup_job, get_backup_job_by_run_id, finalize_backup_job, update_backup_job,
     delete_orphaned_backup_jobs, delete_old_backup_jobs
@@ -20,27 +20,27 @@ agent_monitoring_bp = Blueprint('agent_monitoring', __name__)
 def _authenticate_agent():
     """Look up the requesting agent by its API key.
 
-    Returns (host_dict, None) on success, or (None, (json_response, status))
+    Returns (agent_dict, None) on success, or (None, (json_response, status))
     on failure, so callers can `return error` directly.
     """
     agent_key = request.headers.get('X-API-Key', '').strip()
     if not agent_key:
         return None, (jsonify({"error": "Missing API key (X-API-Key header)"}), 401)
 
-    host = get_host_by_agent_key(agent_key)
-    if not host:
+    agent = get_agent_by_agent_key(agent_key)
+    if not agent:
         return None, (jsonify({"error": "Invalid API key"}), 403)
 
-    if not host['enabled']:
-        return None, (jsonify({"error": f"Host '{host['hostname']}' is disabled"}), 403)
+    if not agent['enabled']:
+        return None, (jsonify({"error": f"Agent '{agent['hostname']}' is disabled"}), 403)
 
-    return host, None
+    return agent, None
 
 
 @agent_monitoring_bp.route('/api/monitoring/events', methods=['POST'])
 def submit_event():
     """Submit an event from a backup agent."""
-    host, error = _authenticate_agent()
+    agent, error = _authenticate_agent()
     if error:
         return error
 
@@ -54,12 +54,12 @@ def submit_event():
     event_type = data.get('event_type', '').strip()
     message = data.get('message', '').strip()
 
-    # Step 1: Update host heartbeat and reported version/type
-    update_heartbeat(host['id'])
+    # Step 1: Update agent heartbeat and reported version/type
+    update_heartbeat(agent['id'])
     if data.get('version'):
-        update_agent_version(host['id'], data.get('version'))
+        update_agent_version(agent['id'], data.get('version'))
     if data.get('agent_type'):
-        update_agent_type(host['id'], data.get('agent_type'))
+        update_agent_type(agent['id'], data.get('agent_type'))
 
     # Scheduler heartbeats have no backup context — just update heartbeat and return
     if not backup_set_id:
@@ -71,7 +71,7 @@ def submit_event():
 
         if not backup_job:
             backup_job_id = create_backup_job(
-                host_id=host['id'],
+                agent_id=agent['id'],
                 job_name=job_name,
                 backup_type=backup_type,
                 run_id=run_id or None,
@@ -123,12 +123,12 @@ def submit_event():
 
 @agent_monitoring_bp.route('/api/monitoring/sync-job-sets', methods=['POST'])
 def sync_job_sets():
-    """Reconcile dashboard-side backup_jobs for a host+job with the agent's own DB.
+    """Reconcile dashboard-side backup_jobs for an agent+job with the agent's own DB.
 
     Agents call this after rotating old backup sets out of their local database
     (see core/backup/common.rotate_backups). The agent sends the full list of
     backup_set_id values it still has locally for the job; any backup_jobs on
-    the dashboard for that host+job whose backup_set_id is NOT in that list are
+    the dashboard for that agent+job whose backup_set_id is NOT in that list are
     considered orphaned (rotated out on the agent) and are deleted here.
     """
     data = request.get_json()
@@ -142,12 +142,12 @@ def sync_job_sets():
     if not isinstance(active_backup_set_ids, list):
         return jsonify({"error": "active_backup_set_ids must be a list"}), 400
 
-    host, error = _authenticate_agent()
+    agent, error = _authenticate_agent()
     if error:
         return error
 
     try:
-        deleted_count = delete_orphaned_backup_jobs(host['id'], job_name, active_backup_set_ids)
+        deleted_count = delete_orphaned_backup_jobs(agent['id'], job_name, active_backup_set_ids)
         return jsonify({"success": True, "deleted_jobs": deleted_count}), 200
     except Exception as e:
         return jsonify({"error": f"Failed to sync job sets: {str(e)}"}), 500
@@ -168,7 +168,7 @@ def purge_old_jobs():
     Request body:
         retention_days (int, required) — delete completed jobs older than this
         job_name (str, optional)       — restrict to a single job name;
-                                          omit to apply to all of the host's jobs
+                                          omit to apply to all of the agent's jobs
     """
     data = request.get_json()
 
@@ -183,12 +183,12 @@ def purge_old_jobs():
     if retention_days <= 0:
         return jsonify({"error": "retention_days must be a positive integer"}), 400
 
-    host, error = _authenticate_agent()
+    agent, error = _authenticate_agent()
     if error:
         return error
 
     try:
-        deleted_count = delete_old_backup_jobs(host['id'], retention_days, job_name)
+        deleted_count = delete_old_backup_jobs(agent['id'], retention_days, job_name)
         return jsonify({"success": True, "deleted_jobs": deleted_count}), 200
     except Exception as e:
         return jsonify({"error": f"Failed to purge old jobs: {str(e)}"}), 500

@@ -4,7 +4,7 @@ import time
 from app.models.db_core import get_db_connection
 
 
-def create_backup_job(host_id, job_name, backup_type, backup_set_id, backup_set_name,
+def create_backup_job(agent_id, job_name, backup_type, backup_set_id, backup_set_name,
                       source="", destination="", encrypt=False, sync=False, run_id=None):
     """Create a new backup job record. Returns backup_job id."""
     with get_db_connection() as conn:
@@ -12,11 +12,11 @@ def create_backup_job(host_id, job_name, backup_type, backup_set_id, backup_set_
         now = time.time()
         c.execute("""
             INSERT INTO backup_jobs
-            (host_id, job_name, backup_type, run_id, backup_set_id, backup_set_name,
+            (agent_id, job_name, backup_type, run_id, backup_set_id, backup_set_name,
              source, destination, encrypt, sync, started_at, status, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            host_id, job_name, backup_type, run_id, backup_set_id, backup_set_name,
+            agent_id, job_name, backup_type, run_id, backup_set_id, backup_set_name,
             source, destination, 1 if encrypt else 0, 1 if sync else 0,
             now, 'running', now, now
         ))
@@ -55,13 +55,13 @@ def get_backup_job_by_set_id(backup_set_id):
         return dict(row) if row else None
 
 
-def list_backup_jobs_for_host(host_id, limit=100):
-    """List backup jobs for a host. Returns list of dicts."""
+def list_backup_jobs_for_agent(agent_id, limit=100):
+    """List backup jobs for an agent. Returns list of dicts."""
     with get_db_connection() as conn:
         c = conn.cursor()
         c.execute("""
-            SELECT * FROM backup_jobs WHERE host_id = ? ORDER BY started_at DESC LIMIT ?
-        """, (host_id, limit))
+            SELECT * FROM backup_jobs WHERE agent_id = ? ORDER BY started_at DESC LIMIT ?
+        """, (agent_id, limit))
         return [dict(row) for row in c.fetchall()]
 
 
@@ -126,24 +126,24 @@ def delete_backup_job(backup_job_id):
 def list_completed_jobs_since(since_ts):
     """List backup jobs that finished (completed/failed/skipped) since since_ts.
 
-    Joins in the host's hostname for display purposes. Returns a list of dicts
+    Joins in the agent's hostname for display purposes. Returns a list of dicts
     ordered by completion time, oldest first. Used to build the dashboard's daily
     email digest.
     """
     with get_db_connection() as conn:
         c = conn.cursor()
         c.execute("""
-            SELECT bj.*, h.hostname AS hostname
+            SELECT bj.*, a.hostname AS hostname
             FROM backup_jobs bj
-            JOIN hosts h ON h.id = bj.host_id
+            JOIN agents a ON a.id = bj.agent_id
             WHERE bj.completed_at IS NOT NULL AND bj.completed_at >= ?
             ORDER BY bj.completed_at ASC
         """, (since_ts,))
         return [dict(row) for row in c.fetchall()]
 
 
-def delete_orphaned_backup_jobs(host_id, job_name, active_backup_set_ids):
-    """Delete backup jobs for a host+job_name whose backup_set_id is no longer
+def delete_orphaned_backup_jobs(agent_id, job_name, active_backup_set_ids):
+    """Delete backup jobs for an agent+job_name whose backup_set_id is no longer
     present in the agent's own database (i.e. it has been rotated out).
 
     As a safety measure, if ``active_backup_set_ids`` is empty this is a no-op —
@@ -162,8 +162,8 @@ def delete_orphaned_backup_jobs(host_id, job_name, active_backup_set_ids):
         placeholders = ", ".join(["?"] * len(active_backup_set_ids))
         c.execute(f"""
             SELECT id FROM backup_jobs
-            WHERE host_id = ? AND job_name = ? AND backup_set_id NOT IN ({placeholders})
-        """, (host_id, job_name, *active_backup_set_ids))
+            WHERE agent_id = ? AND job_name = ? AND backup_set_id NOT IN ({placeholders})
+        """, (agent_id, job_name, *active_backup_set_ids))
         orphaned_ids = [row['id'] for row in c.fetchall()]
 
         if not orphaned_ids:
@@ -175,8 +175,8 @@ def delete_orphaned_backup_jobs(host_id, job_name, active_backup_set_ids):
         return c.rowcount
 
 
-def delete_old_backup_jobs(host_id, retention_days, job_name=None):
-    """Delete completed backup jobs for a host older than retention_days.
+def delete_old_backup_jobs(agent_id, retention_days, job_name=None):
+    """Delete completed backup jobs for an agent older than retention_days.
 
     For agents that don't do their own set-based rotation like
     file_backup_agent (see delete_orphaned_backup_jobs above), this lets the
@@ -185,7 +185,7 @@ def delete_old_backup_jobs(host_id, retention_days, job_name=None):
 
     Only finished jobs (completed_at set) are eligible — a job still
     "running" is never purged this way. If job_name is omitted, applies to
-    all of the host's jobs.
+    all of this agent's jobs.
 
     Returns the number of backup_jobs rows deleted (cascades to events).
     """
@@ -199,13 +199,13 @@ def delete_old_backup_jobs(host_id, retention_days, job_name=None):
         if job_name:
             c.execute("""
                 DELETE FROM backup_jobs
-                WHERE host_id = ? AND job_name = ? AND completed_at IS NOT NULL AND completed_at < ?
-            """, (host_id, job_name, cutoff))
+                WHERE agent_id = ? AND job_name = ? AND completed_at IS NOT NULL AND completed_at < ?
+            """, (agent_id, job_name, cutoff))
         else:
             c.execute("""
                 DELETE FROM backup_jobs
-                WHERE host_id = ? AND completed_at IS NOT NULL AND completed_at < ?
-            """, (host_id, cutoff))
+                WHERE agent_id = ? AND completed_at IS NOT NULL AND completed_at < ?
+            """, (agent_id, cutoff))
         conn.commit()
         return c.rowcount
 

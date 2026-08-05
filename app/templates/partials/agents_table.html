@@ -16,7 +16,7 @@
             {% for agent in agents %}
                 <tr>
                     <td>
-                        <a href="{{ url_for('dashboard.agent_detail', host_id=agent.id) }}" title="View job details for {{ agent.hostname }}">
+                        <a href="{{ url_for('dashboard.agent_detail', agent_id=agent.id) }}" title="View job details for {{ agent.hostname }}">
                             {{ agent.hostname }}
                         </a>
                     </td>

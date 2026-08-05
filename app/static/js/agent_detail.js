@@ -89,10 +89,10 @@ function initializeAgentDetailCharts(detail) {
     });
 }
 
-function initializeRecentJobsTable(hostId) {
+function initializeRecentJobsTable(agentId) {
     const recentJobsTable = $('#recentJobsTable').DataTable({
         ajax: {
-            url: `/api/agent_jobs/${hostId}`,
+            url: `/api/agent_jobs/${agentId}`,
             dataSrc: 'data'
         },
         columns: [
@@ -159,8 +159,8 @@ function initializeRecentJobsTable(hostId) {
         ],
         lengthMenu: [[25, 50, 75, 100], [25, 50, 75, 100]],
         pageLength: 25,
-        // Group by Backup Set ID only (host is implicit — this page is
-        // scoped to a single host already). Newest backup set first.
+        // Group by Backup Set ID only (agent is implicit — this page is
+        // scoped to a single agent already). Newest backup set first.
         order: [[4, 'desc'], [0, 'desc']],
         rowGroup: {
             dataSrc: 'backup_set_name',
@@ -241,5 +241,5 @@ function initializeRecentJobsTable(hostId) {
 document.addEventListener('DOMContentLoaded', function () {
     const detail = window.AGENT_DETAIL || {};
     initializeAgentDetailCharts(detail);
-    initializeRecentJobsTable(detail.hostId);
+    initializeRecentJobsTable(detail.agentId);
 });

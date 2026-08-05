@@ -104,7 +104,7 @@ class AlertManager:
                 continue
 
             # Check cooldown
-            key = (event.get('host_id'), event.get('job_name'))
+            key = (event.get('agent_id'), event.get('job_name'))
             now = time.time()
             last_trigger = rule.last_triggered.get(key, 0)
 
@@ -130,7 +130,7 @@ class AlertManager:
                 alert = {
                     'rule_name': rule.name,
                     'event_type': event.get('event_type'),
-                    'host_id': event.get('host_id'),
+                    'agent_id': event.get('agent_id'),
                     'message': event.get('message'),
                     'severity': self._get_severity(rule.event_type),
                     'timestamp': now
@@ -170,23 +170,23 @@ def store_alert(alert: Dict[str, Any]) -> int:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 rule_name TEXT NOT NULL,
                 event_type TEXT NOT NULL,
-                host_id INTEGER,
+                agent_id INTEGER,
                 message TEXT NOT NULL,
                 severity TEXT NOT NULL,
                 acknowledged BOOLEAN DEFAULT 0,
                 acknowledged_at REAL,
                 timestamp REAL NOT NULL,
-                FOREIGN KEY (host_id) REFERENCES hosts(id) ON DELETE SET NULL
+                FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
             );
         """)
 
         c.execute("""
-            INSERT INTO alerts (rule_name, event_type, host_id, message, severity, timestamp)
+            INSERT INTO alerts (rule_name, event_type, agent_id, message, severity, timestamp)
             VALUES (?, ?, ?, ?, ?, ?)
         """, (
             alert.get('rule_name'),
             alert.get('event_type'),
-            alert.get('host_id'),
+            alert.get('agent_id'),
             alert.get('message'),
             alert.get('severity'),
             alert.get('timestamp', time.time())

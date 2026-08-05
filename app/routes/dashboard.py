@@ -27,29 +27,29 @@ def load_storage_config(config_path):
     return drives, s3_buckets
 
 def _get_agents_summary():
-    """Query registered hosts + their backup metrics for the Connected Agents card."""
+    """Query registered agents + their backup metrics for the Connected Agents card."""
     agents = []
     try:
         with get_db_connection() as conn:
             c = conn.cursor()
             c.execute("""
-                SELECT h.id, h.hostname, h.ip_address, h.agent_version, h.agent_type,
-                       h.last_heartbeat, h.enabled,
+                SELECT a.id, a.hostname, a.ip_address, a.agent_version, a.agent_type,
+                       a.last_heartbeat, a.enabled,
                        CASE
-                           WHEN h.last_heartbeat IS NOT NULL AND
-                                h.last_heartbeat > ?
+                           WHEN a.last_heartbeat IS NOT NULL AND
+                                a.last_heartbeat > ?
                            THEN 'online'
                            ELSE 'offline'
                        END as status
-                FROM hosts h
-                ORDER BY h.hostname ASC
+                FROM agents a
+                ORDER BY a.hostname ASC
             """, (time.time() - 3600,))  # Online if heartbeat in last hour
             rows = c.fetchall()
 
             for row in rows:
                 agent_data = dict(row)
 
-                # Get backup metrics for this host (last 30 days)
+                # Get backup metrics for this agent (last 30 days)
                 c.execute("""
                     SELECT COUNT(*) as total_backups,
                            SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful,
@@ -57,7 +57,7 @@ def _get_agents_summary():
                            MAX(started_at) as last_backup_time,
                            SUM(bytes_processed) as total_bytes
                     FROM backup_jobs
-                    WHERE host_id = ? AND started_at > ?
+                    WHERE agent_id = ? AND started_at > ?
                 """, (agent_data['id'], time.time() - 86400 * 30))  # Last 30 days
 
                 metrics = c.fetchone()
@@ -69,17 +69,17 @@ def _get_agents_summary():
                     'total_bytes': metrics['total_bytes'] or 0
                 }
 
-                # Job count for the "Jobs" column (all-time, matches Hosts page)
-                c.execute("SELECT COUNT(*) as job_count FROM backup_jobs WHERE host_id = ?", (agent_data['id'],))
+                # Job count for the "Jobs" column (all-time, matches Agents page)
+                c.execute("SELECT COUNT(*) as job_count FROM backup_jobs WHERE agent_id = ?", (agent_data['id'],))
                 agent_data['job_count'] = c.fetchone()['job_count'] or 0
 
                 agents.append(agent_data)
     except Exception as e:
-        current_app.logger.error(f"Error loading hosts from database: {e}")
+        current_app.logger.error(f"Error loading agents from database: {e}")
         agents = []
     return agents
 
-def _get_daily_status_trend(cursor, host_id=None):
+def _get_daily_status_trend(cursor, agent_id=None):
     """Return a 30-day, zero-filled, per-status daily job-count breakdown.
 
     Returns (trend_labels, trend_datasets) where trend_datasets is a dict of
@@ -87,7 +87,7 @@ def _get_daily_status_trend(cursor, host_id=None):
     a status-segmented (stacked) Job Activity bar chart.
     """
     thirty_days_ago = time.time() - 86400 * 30
-    if host_id is None:
+    if agent_id is None:
         cursor.execute("""
             SELECT date(started_at, 'unixepoch') as day,
                    COALESCE(status, 'unknown') as status,
@@ -102,9 +102,9 @@ def _get_daily_status_trend(cursor, host_id=None):
                    COALESCE(status, 'unknown') as status,
                    COUNT(*) as count
             FROM backup_jobs
-            WHERE host_id = ? AND started_at > ?
+            WHERE agent_id = ? AND started_at > ?
             GROUP BY day, status
-        """, (host_id, thirty_days_ago))
+        """, (agent_id, thirty_days_ago))
 
     daily_status_counts = {}
     statuses_seen = set()
@@ -187,47 +187,47 @@ def agents_card_partial():
     agents = _get_agents_summary()
     return render_template("partials/agents_table.html", agents=agents)
 
-@dashboard_bp.route("/agents/<int:host_id>")
-def agent_detail(host_id):
-    """Render a detail dashboard for a single registered agent/host.
+@dashboard_bp.route("/agents/<int:agent_id>")
+def agent_detail(agent_id):
+    """Render a detail dashboard for a single registered agent.
 
     Shows aggregate event/status counts, backup-type breakdown, a 30-day
     activity trend, and a recent-jobs table — i.e. everything the agent
-    reports to the dashboard for this host.
+    reports to the dashboard.
     """
     with get_db_connection() as conn:
         c = conn.cursor()
         c.execute("""
-            SELECT h.*,
+            SELECT a.*,
                    CASE
-                       WHEN h.last_heartbeat IS NOT NULL AND h.last_heartbeat > ?
+                       WHEN a.last_heartbeat IS NOT NULL AND a.last_heartbeat > ?
                        THEN 'online'
                        ELSE 'offline'
                    END as status
-            FROM hosts h
-            WHERE h.id = ?
-        """, (time.time() - 3600, host_id))
-        host_row = c.fetchone()
-        if not host_row:
+            FROM agents a
+            WHERE a.id = ?
+        """, (time.time() - 3600, agent_id))
+        agent_row = c.fetchone()
+        if not agent_row:
             abort(404)
-        host = dict(host_row)
+        agent = dict(agent_row)
 
         # Status breakdown (all-time) — powers the status doughnut chart
         c.execute("""
             SELECT COALESCE(status, 'unknown') as status, COUNT(*) as count
             FROM backup_jobs
-            WHERE host_id = ?
+            WHERE agent_id = ?
             GROUP BY status
-        """, (host_id,))
+        """, (agent_id,))
         status_counts = {row['status']: row['count'] for row in c.fetchall()}
 
         # Backup type breakdown (all-time) — powers the backup-type bar chart
         c.execute("""
             SELECT COALESCE(backup_type, 'unknown') as backup_type, COUNT(*) as count
             FROM backup_jobs
-            WHERE host_id = ?
+            WHERE agent_id = ?
             GROUP BY backup_type
-        """, (host_id,))
+        """, (agent_id,))
         type_counts = {row['backup_type']: row['count'] for row in c.fetchall()}
 
         # Aggregate totals for the stat cards
@@ -238,20 +238,20 @@ def agent_detail(host_id):
                    AVG(CASE WHEN status IN ('success', 'completed') THEN runtime_seconds END) as avg_runtime,
                    MAX(started_at) as last_run
             FROM backup_jobs
-            WHERE host_id = ?
-        """, (host_id,))
+            WHERE agent_id = ?
+        """, (agent_id,))
         totals = dict(c.fetchone())
 
         # 30-day activity trend, segmented by status (continuous series,
         # zero-filled for empty days) — powers the stacked Activity Trend chart.
-        trend_labels, trend_datasets = _get_daily_status_trend(c, host_id=host_id)
+        trend_labels, trend_datasets = _get_daily_status_trend(c, agent_id=agent_id)
 
-        # Recent jobs are now fetched client-side via /api/agent_jobs/<host_id>
+        # Recent jobs are now fetched client-side via /api/agent_jobs/<agent_id>
         # for the DataTables-driven Recent Jobs table on agent_detail.html.
 
     return render_template(
         "agent_detail.html",
-        host=host,
+        agent=agent,
         status_counts=status_counts,
         type_counts=type_counts,
         totals=totals,

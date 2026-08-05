@@ -24,8 +24,8 @@ $(document).ready(function () {
                         return row.backup_set_id || data || '';
                     }
                     const label = data || '';
-                    if (row.host_id) {
-                        const url = `/agents/${row.host_id}?set=${encodeURIComponent(label)}`;
+                    if (row.agent_id) {
+                        const url = `/agents/${row.agent_id}?set=${encodeURIComponent(label)}`;
                         return `<a href="${url}">${label}</a>`;
                     }
                     return label;

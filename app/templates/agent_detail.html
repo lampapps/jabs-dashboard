@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %} - {{ host.hostname }}{% endblock %}
+{% block title %} - {{ agent.hostname }}{% endblock %}
 {% block top_scripts %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
 {% endblock %}
@@ -10,24 +10,24 @@
     <div class="row pb-0 mt-4">
         <div class="col-12">
             <div class="d-flex align-items-center flex-wrap gap-2 mb-4">
-                <h2 class="mb-0 me-2"><i class="fa fa-server me-2"></i>{{ host.hostname }}</h2>
-                {% if host.status == 'online' %}
+                <h2 class="mb-0 me-2"><i class="fa fa-server me-2"></i>{{ agent.hostname }}</h2>
+                {% if agent.status == 'online' %}
                     <span class="badge bg-success">online</span>
                 {% else %}
                     <span class="badge bg-warning">offline</span>
                 {% endif %}
-                {% if host.agent_type %}
-                    <span class="badge bg-primary">{{ host.agent_type }}</span>
+                {% if agent.agent_type %}
+                    <span class="badge bg-primary">{{ agent.agent_type }}</span>
                 {% endif %}
-                {% if host.agent_version %}
-                    <span class="badge bg-info">v{{ host.agent_version }}</span>
+                {% if agent.agent_version %}
+                    <span class="badge bg-info">v{{ agent.agent_version }}</span>
                 {% endif %}
                 <span class="text-muted small ms-2">
-                    <i class="fa fa-network-wired me-1"></i>{{ host.ip_address }}
+                    <i class="fa fa-network-wired me-1"></i>{{ agent.ip_address }}
                 </span>
                 <span class="text-muted small ms-2">
                     <i class="fa fa-clock me-1"></i>Last heartbeat:
-                    {% if host.last_heartbeat %}{{ host.last_heartbeat|datetimeformat }}{% else %}never{% endif %}
+                    {% if agent.last_heartbeat %}{{ agent.last_heartbeat|datetimeformat }}{% else %}never{% endif %}
                 </span>
             </div>
         </div>
@@ -139,7 +139,7 @@
                             </tr>
                             <tr>
                                 <td class="text-muted">Notes</td>
-                                <td class="text-end">{{ host.notes or '—' }}</td>
+                                <td class="text-end">{{ agent.notes or '—' }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -152,7 +152,7 @@
     <div class="row pb-3">
         <div class="col-12 mb-3 d-flex">
             <div class="card flex-fill">
-                <div class="card-header"><i class="fa fa-chart-line me-1"></i> Job Activity (Last 30 Days)</div>
+                <div class="card-header"><i class="fa fa-chart-line me-1"></i> {{ agent.hostname }} Job Activity (Last 30 Days)</div>
                 <div class="card-body" style="height: 260px;">
                     <canvas id="trendChart"></canvas>
                 </div>
@@ -164,7 +164,7 @@
     <div class="row pb-4">
         <div class="col-12 mb-3 d-flex">
             <div class="card flex-fill">
-                <div class="card-header"><i class="fa fa-list me-1"></i> Recent Jobs</div>
+                <div class="card-header"><i class="fa fa-list me-1"></i> {{ agent.hostname }} Backup Jobs</div>
                 <div class="card-body p-0">
                     <table id="recentJobsTable" class="table table-striped table-bordered table-hover display responsive">
                         <thead>
@@ -199,7 +199,7 @@
     // Bootstrap data for static/js/agent_detail.js — kept minimal/inline since
     // it's server-rendered data, not logic.
     window.AGENT_DETAIL = {
-        hostId: {{ host.id|tojson }},
+        agentId: {{ agent.id|tojson }},
         statusCounts: {{ status_counts|tojson }},
         typeCounts: {{ type_counts|tojson }},
         trendLabels: {{ trend_labels|tojson }},

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Hosts Management{% endblock %}
+{% block title %}Agent Management{% endblock %}
 {% block top_scripts %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
 {% endblock %}
@@ -11,8 +11,8 @@
             <h2 class="mb-0">Registered Agents</h2>
             <div class="text-muted small">Manage backup agents and their job configurations</div>
         </div>
-        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addHostModal">
-            <i class="fa fa-plus"></i> Register Host
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addAgentModal">
+            <i class="fa fa-plus"></i> Register Agent
         </button>
     </div>
 
@@ -39,118 +39,118 @@
                 </tr>
             </thead>
             <tbody>
-                {% if hosts %}
-                    {% for host in hosts %}
+                {% if agents %}
+                    {% for agent in agents %}
                     <tr>
                         <td>
-                            <a href="{{ url_for('dashboard.agent_detail', host_id=host.id) }}" title="View job details for {{ host.hostname }}">
-                                {{ host.hostname }}
+                            <a href="{{ url_for('dashboard.agent_detail', agent_id=agent.id) }}" title="View job details for {{ agent.hostname }}">
+                                {{ agent.hostname }}
                             </a>
                         </td>
-                        <td>{{ host.ip_address }}</td>
+                        <td>{{ agent.ip_address }}</td>
                         <td>
-                            <code class="small" id="agent-key-{{ host.id }}">{{ host.agent_key }}</code>
-                            <button class="btn btn-sm btn-link p-0 ms-1" title="Copy key" onclick="copyAgentKey({{ host.id }})">
+                            <code class="small" id="agent-key-{{ agent.id }}">{{ agent.agent_key }}</code>
+                            <button class="btn btn-sm btn-link p-0 ms-1" title="Copy key" onclick="copyAgentKey({{ agent.id }})">
                                 <i class="fa fa-copy"></i>
                             </button>
                         </td>
                         <td>
-                            {% if host.agent_type %}
-                                <span>{{ host.agent_type }}</span>
+                            {% if agent.agent_type %}
+                                <span>{{ agent.agent_type }}</span>
                             {% else %}
                                 <span class="text-muted">—</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if host.agent_version %}
-                                <span>{{ host.agent_version }}</span>
+                            {% if agent.agent_version %}
+                                <span>{{ agent.agent_version }}</span>
                             {% else %}
                                 <span class="text-muted">—</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if host.last_heartbeat %}
-                                <small class="text-muted">{{ host.last_heartbeat|datetimeformat }}</small>
+                            {% if agent.last_heartbeat %}
+                                <small class="text-muted">{{ agent.last_heartbeat|datetimeformat }}</small>
                             {% else %}
                                 <span class="text-muted">—</span>
                             {% endif %}
                         </td>
                         <td>
-                            <span>{{ host.job_count or 0 }} jobs</span>
+                            <span>{{ agent.job_count or 0 }} jobs</span>
                         </td>
                         <td>
-                            {% if host.enabled %}
+                            {% if agent.enabled %}
                                 <span class="badge bg-success">Active</span>
                             {% else %}
                                 <span class="badge bg-secondary">Disabled</span>
                             {% endif %}
                         </td>
                         <td>
-                            <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editHostModal-{{ host.id }}" title="Edit host">
+                            <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editAgentModal-{{ agent.id }}" title="Edit Agent">
                                 <i class="fa fa-edit"></i>
                             </button>
-                            <button class="btn btn-sm btn-secondary" title="Regenerate API key" onclick="regenerateKey({{ host.id }})">
+                            <button class="btn btn-sm btn-secondary" title="Regenerate API key" onclick="regenerateKey({{ agent.id }})">
                                 <i class="fa fa-key"></i>
                             </button>
-                            <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteHostModal-{{ host.id }}" title="Delete host">
+                            <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteAgentModal-{{ agent.id }}" title="Delete Agent">
                                 <i class="fa fa-trash"></i>
                             </button>
                         </td>
                     </tr>
 
-                    <!-- Edit Host Modal -->
-                    <div class="modal fade" id="editHostModal-{{ host.id }}" tabindex="-1">
+                    <!-- Edit Agent Modal -->
+                    <div class="modal fade" id="editAgentModal-{{ agent.id }}" tabindex="-1">
                         <div class="modal-dialog">
                             <div class="modal-content">
                                 <div class="modal-header">
-                                    <h5 class="modal-title">Edit Host</h5>
+                                    <h5 class="modal-title">Edit Agent</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                 </div>
                                 <div class="modal-body">
-                                    <form id="editHostForm-{{ host.id }}">
+                                    <form id="editAgentForm-{{ agent.id }}">
                                         <div class="mb-3">
                                             <label class="form-label">Hostname</label>
-                                            <input type="text" class="form-control" name="hostname" value="{{ host.hostname }}" required>
+                                            <input type="text" class="form-control" name="hostname" value="{{ agent.hostname }}" required>
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">IP Address</label>
-                                            <input type="text" class="form-control" name="ip_address" value="{{ host.ip_address }}" required>
+                                            <input type="text" class="form-control" name="ip_address" value="{{ agent.ip_address }}" required>
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Notes</label>
-                                            <textarea class="form-control" name="notes" rows="3">{{ host.host_notes or '' }}</textarea>
+                                            <textarea class="form-control" name="notes" rows="3">{{ agent.notes or '' }}</textarea>
                                         </div>
                                         <div class="mb-3">
                                             <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" name="enabled" id="enabled-{{ host.id }}" {% if host.enabled %}checked{% endif %}>
-                                                <label class="form-check-label" for="enabled-{{ host.id }}">Enabled</label>
+                                                <input class="form-check-input" type="checkbox" name="enabled" id="enabled-{{ agent.id }}" {% if agent.enabled %}checked{% endif %}>
+                                                <label class="form-check-label" for="enabled-{{ agent.id }}">Enabled</label>
                                             </div>
                                         </div>
                                     </form>
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                    <button type="button" class="btn btn-primary" onclick="saveHost({{ host.id }})">Save Changes</button>
+                                    <button type="button" class="btn btn-primary" onclick="saveAgent({{ agent.id }})">Save Changes</button>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Delete Host Modal -->
-                    <div class="modal fade" id="deleteHostModal-{{ host.id }}" tabindex="-1">
+                    <!-- Delete Agent Modal -->
+                    <div class="modal fade" id="deleteAgentModal-{{ agent.id }}" tabindex="-1">
                         <div class="modal-dialog">
                             <div class="modal-content">
                                 <div class="modal-header">
-                                    <h5 class="modal-title">Delete Host</h5>
+                                    <h5 class="modal-title">Delete Agent</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                 </div>
                                 <div class="modal-body">
-                                    <p>Are you sure you want to delete host <strong>{{ host.hostname }}</strong>?</p>
+                                    <p>Are you sure you want to delete Agent <strong>{{ agent.hostname }}</strong>?</p>
                                     <p class="text-warning small"><i class="fa fa-exclamation-triangle"></i> This will delete all associated jobs and events.</p>
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                    <button type="button" class="btn btn-danger" onclick="deleteHost({{ host.id }})">Delete</button>
+                                    <button type="button" class="btn btn-danger" onclick="deleteAgent({{ agent.id }})">Delete</button>
                                 </div>
                             </div>
                         </div>
@@ -158,7 +158,7 @@
                     {% endfor %}
                 {% else %}
                     <tr>
-                        <td colspan="9" class="text-center text-muted py-4">No hosts registered. Click "Register Host" to add one.</td>
+                        <td colspan="9" class="text-center text-muted py-4">No agents registered. Click "Register Agent" to add one.</td>
                     </tr>
                 {% endif %}
             </tbody>
@@ -166,16 +166,16 @@
     </div>
 </div>
 
-<!-- Add Host Modal -->
-<div class="modal fade" id="addHostModal" tabindex="-1">
+<!-- Add Agent Modal -->
+<div class="modal fade" id="addAgentModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Register New Host</h5>
+                <h5 class="modal-title">Register New Agent</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="addHostForm">
+                <form id="addAgentForm">
                     <div class="mb-3">
                         <label class="form-label">Hostname</label>
                         <input type="text" class="form-control" name="hostname" placeholder="e.g., backup-server-01" required>
@@ -188,28 +188,28 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Notes</label>
-                        <textarea class="form-control" name="notes" placeholder="Optional notes about this host" rows="3"></textarea>
+                        <textarea class="form-control" name="notes" placeholder="Optional notes about this agent" rows="3"></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="addHost()">Register Host</button>
+                <button type="button" class="btn btn-primary" onclick="addAgent()">Register Agent</button>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-function addHost() {
-    const form = document.getElementById('addHostForm');
+function addAgent() {
+    const form = document.getElementById('addAgentForm');
     const data = {
         hostname: form.hostname.value,
         ip_address: form.ip_address.value,
         notes: form.notes.value
     };
 
-    fetch('{{ url_for("configuration.add_host") }}', {
+    fetch('{{ url_for("agents.add_agent") }}', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(data)
@@ -226,15 +226,15 @@ function addHost() {
     .catch(e => alert('Error: ' + e));
 }
 
-function copyAgentKey(hostId) {
-    const el = document.getElementById('agent-key-' + hostId);
+function copyAgentKey(agentId) {
+    const el = document.getElementById('agent-key-' + agentId);
     navigator.clipboard.writeText(el.textContent.trim());
 }
 
-function regenerateKey(hostId) {
+function regenerateKey(agentId) {
     if (!confirm('Regenerate this agent\'s API key? The old key will stop working immediately.')) return;
 
-    fetch(`/configuration/hosts/${hostId}/regenerate-key`, {
+    fetch(`/agents/${agentId}/regenerate-key`, {
         method: 'POST'
     })
     .then(r => r.json())
@@ -249,8 +249,8 @@ function regenerateKey(hostId) {
     .catch(e => alert('Error: ' + e));
 }
 
-function saveHost(hostId) {
-    const form = document.getElementById('editHostForm-' + hostId);
+function saveAgent(agentId) {
+    const form = document.getElementById('editAgentForm-' + agentId);
     const data = {
         hostname: form.hostname.value,
         ip_address: form.ip_address.value,
@@ -258,7 +258,7 @@ function saveHost(hostId) {
         enabled: form.elements['enabled'].checked
     };
 
-    fetch('{{ url_for("configuration.edit_host", host_id=0) }}'.replace('0', hostId), {
+    fetch('{{ url_for("agents.edit_agent", agent_id=0) }}'.replace('0', agentId), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(data)
@@ -275,10 +275,10 @@ function saveHost(hostId) {
     .catch(e => alert('Error: ' + e));
 }
 
-function deleteHost(hostId) {
+function deleteAgent(agentId) {
     if (!confirm('Are you sure? This will delete all associated jobs and events.')) return;
 
-    fetch('{{ url_for("configuration.delete_host", host_id=0) }}'.replace('0', hostId), {
+    fetch('{{ url_for("agents.delete_agent", agent_id=0) }}'.replace('0', agentId), {
         method: 'POST'
     })
     .then(r => r.json())

@@ -37,7 +37,7 @@ def get_events():
                     bj.id,
                     bj.backup_set_id,
                     bj.backup_set_name,
-                    h.hostname,
+                    a.hostname,
                     bj.job_name,
                     bj.backup_type,
                     bj.encrypt,
@@ -49,7 +49,7 @@ def get_events():
                     latest_e.event_type as latest_event_type,
                     latest_e.message as latest_event_message
                 FROM backup_jobs bj
-                JOIN hosts h ON bj.host_id = h.id
+                JOIN agents a ON bj.agent_id = a.id
                 LEFT JOIN events latest_e ON latest_e.id = (
                     SELECT id FROM events WHERE backup_job_id = bj.id
                     ORDER BY timestamp DESC, id DESC LIMIT 1
@@ -152,14 +152,14 @@ def get_backup_sets():
                 SELECT
                     bj.backup_set_id,
                     bj.backup_set_name,
-                    h.id AS host_id,
-                    h.hostname,
+                    a.id AS agent_id,
+                    a.hostname,
                     bj.job_name,
                     bj.status,
                     bj.started_at,
                     bj.completed_at
                 FROM backup_jobs bj
-                JOIN hosts h ON bj.host_id = h.id
+                JOIN agents a ON bj.agent_id = a.id
                 ORDER BY bj.started_at ASC
             """)
             rows = c.fetchall()
@@ -181,7 +181,7 @@ def get_backup_sets():
                         'backup_set_id': set_id,
                         'backup_set_name': row['backup_set_name'] or set_id,
                         'host': row['hostname'] or '',
-                        'host_id': row['host_id'],
+                        'agent_id': row['agent_id'],
                         'job_name': row['job_name'] or '',
                         'start_time': row['started_at'],
                         'last_activity': row['completed_at'] or row['started_at'],
@@ -213,7 +213,7 @@ def get_backup_sets():
                     'backup_set_id': set_id,
                     'backup_set_name': entry['backup_set_name'],
                     'host': entry['host'],
-                    'host_id': entry['host_id'],
+                    'agent_id': entry['agent_id'],
                     'job_name': entry['job_name'],
                     'start_time': datetime.fromtimestamp(entry['start_time']).strftime('%Y-%m-%d %H:%M:%S') if entry['start_time'] else '',
                     'last_event_time': datetime.fromtimestamp(last_activity).strftime('%Y-%m-%d %H:%M:%S') if last_activity else '',
@@ -229,9 +229,9 @@ def get_backup_sets():
         traceback.print_exc()
         return jsonify({'data': [], 'error': str(e)})
 
-@api_bp.route("/api/agent_jobs/<int:host_id>")
-def get_agent_jobs(host_id):
-    """Return recent backup jobs for a single host, for the agent_detail page's
+@api_bp.route("/api/agent_jobs/<int:agent_id>")
+def get_agent_jobs(agent_id):
+    """Return recent backup jobs for a single agent, for the agent_detail page's
     DataTables-driven Recent Jobs table (grouped client-side by backup_set_name).
     """
     try:
@@ -259,10 +259,10 @@ def get_agent_jobs(host_id):
                     SELECT id FROM events WHERE backup_job_id = bj.id
                     ORDER BY timestamp DESC, id DESC LIMIT 1
                 )
-                WHERE bj.host_id = ?
+                WHERE bj.agent_id = ?
                 ORDER BY bj.started_at DESC
                 LIMIT 200
-            """, (host_id,))
+            """, (agent_id,))
 
             rows = c.fetchall()
             transformed = []
@@ -680,34 +680,34 @@ def heartbeat():
 
 @api_bp.route('/api/monitor_targets')
 def get_monitor_targets():
-    """Return registered hosts from the hosts table."""
+    """Return registered agents from the agents table."""
     try:
         with get_db_connection() as conn:
             c = conn.cursor()
             c.execute("""
                 SELECT id, hostname, ip_address, agent_version, last_heartbeat, enabled
-                FROM hosts
+                FROM agents
                 ORDER BY hostname
             """)
-            hosts = [dict(row) for row in c.fetchall()]
+            agents = [dict(row) for row in c.fetchall()]
 
         # Format for backward compatibility
         targets = []
         api_statuses = {}
 
-        for host in hosts:
+        for agent in agents:
             targets.append({
-                'name': host['hostname'],
-                'hostname': host['hostname'],
-                'ip_address': host['ip_address'],
-                'enabled': host['enabled']
+                'name': agent['hostname'],
+                'hostname': agent['hostname'],
+                'ip_address': agent['ip_address'],
+                'enabled': agent['enabled']
             })
 
-            api_statuses[host['hostname']] = {
-                'hostname': host['hostname'],
-                'version': host['agent_version'],
-                'last_seen': datetime.fromtimestamp(host['last_heartbeat']).isoformat() if host['last_heartbeat'] else None,
-                'status': 'enabled' if host['enabled'] else 'disabled'
+            api_statuses[agent['hostname']] = {
+                'hostname': agent['hostname'],
+                'version': agent['agent_version'],
+                'last_seen': datetime.fromtimestamp(agent['last_heartbeat']).isoformat() if agent['last_heartbeat'] else None,
+                'status': 'enabled' if agent['enabled'] else 'disabled'
             }
 
         return jsonify({
