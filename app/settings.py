@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 
 
-VERSION = "v0.11.0"
+VERSION = "0.11.1"
 
 # --- Environment Configuration ---
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))

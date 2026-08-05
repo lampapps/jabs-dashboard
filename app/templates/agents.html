@@ -50,7 +50,7 @@
                         <td>{{ agent.ip_address }}</td>
                         <td>
                             <code class="small" id="agent-key-{{ agent.id }}">{{ agent.agent_key }}</code>
-                            <button class="btn btn-sm btn-link p-0 ms-1" title="Copy key" onclick="copyAgentKey({{ agent.id }})">
+                            <button class="btn btn-sm btn-link p-0 ms-1" title="Copy key" onclick="copyAgentKey('{{ agent.id }}')">
                                 <i class="fa fa-copy"></i>
                             </button>
                         </td>
@@ -89,7 +89,7 @@
                             <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editAgentModal-{{ agent.id }}" title="Edit Agent">
                                 <i class="fa fa-edit"></i>
                             </button>
-                            <button class="btn btn-sm btn-secondary" title="Regenerate API key" onclick="regenerateKey({{ agent.id }})">
+                            <button class="btn btn-sm btn-secondary" title="Regenerate API key" onclick="regenerateKey('{{ agent.id }}')">
                                 <i class="fa fa-key"></i>
                             </button>
                             <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteAgentModal-{{ agent.id }}" title="Delete Agent">
@@ -130,7 +130,7 @@
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                    <button type="button" class="btn btn-primary" onclick="saveAgent({{ agent.id }})">Save Changes</button>
+                                    <button type="button" class="btn btn-primary" onclick="saveAgent('{{ agent.id }}')">Save Changes</button>
                                 </div>
                             </div>
                         </div>
@@ -150,7 +150,7 @@
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                    <button type="button" class="btn btn-danger" onclick="deleteAgent({{ agent.id }})">Delete</button>
+                                    <button type="button" class="btn btn-danger" onclick="deleteAgent('{{ agent.id }}')">Delete</button>
                                 </div>
                             </div>
                         </div>
@@ -199,98 +199,7 @@
         </div>
     </div>
 </div>
-
-<script>
-function addAgent() {
-    const form = document.getElementById('addAgentForm');
-    const data = {
-        hostname: form.hostname.value,
-        ip_address: form.ip_address.value,
-        notes: form.notes.value
-    };
-
-    fetch('{{ url_for("agents.add_agent") }}', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(data)
-    })
-    .then(r => r.json())
-    .then(result => {
-        if (result.success) {
-            alert(`${result.message}\n\nAgent API key (copy this into the agent's .env as JABS_AGENT_KEY):\n${result.agent_key}`);
-            location.reload();
-        } else {
-            alert('Error: ' + result.error);
-        }
-    })
-    .catch(e => alert('Error: ' + e));
-}
-
-function copyAgentKey(agentId) {
-    const el = document.getElementById('agent-key-' + agentId);
-    navigator.clipboard.writeText(el.textContent.trim());
-}
-
-function regenerateKey(agentId) {
-    if (!confirm('Regenerate this agent\'s API key? The old key will stop working immediately.')) return;
-
-    fetch(`/agents/${agentId}/regenerate-key`, {
-        method: 'POST'
-    })
-    .then(r => r.json())
-    .then(result => {
-        if (result.success) {
-            alert(`New API key (update the agent's .env with JABS_AGENT_KEY):\n${result.agent_key}`);
-            location.reload();
-        } else {
-            alert('Error: ' + result.error);
-        }
-    })
-    .catch(e => alert('Error: ' + e));
-}
-
-function saveAgent(agentId) {
-    const form = document.getElementById('editAgentForm-' + agentId);
-    const data = {
-        hostname: form.hostname.value,
-        ip_address: form.ip_address.value,
-        notes: form.notes.value,
-        enabled: form.elements['enabled'].checked
-    };
-
-    fetch('{{ url_for("agents.edit_agent", agent_id=0) }}'.replace('0', agentId), {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(data)
-    })
-    .then(r => r.json())
-    .then(result => {
-        if (result.success) {
-            alert(result.message);
-            location.reload();
-        } else {
-            alert('Error: ' + result.error);
-        }
-    })
-    .catch(e => alert('Error: ' + e));
-}
-
-function deleteAgent(agentId) {
-    if (!confirm('Are you sure? This will delete all associated jobs and events.')) return;
-
-    fetch('{{ url_for("agents.delete_agent", agent_id=0) }}'.replace('0', agentId), {
-        method: 'POST'
-    })
-    .then(r => r.json())
-    .then(result => {
-        if (result.success) {
-            alert(result.message);
-            location.reload();
-        } else {
-            alert('Error: ' + result.error);
-        }
-    })
-    .catch(e => alert('Error: ' + e));
-}
-</script>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/agents.js') }}"></script>
 {% endblock %}
