@@ -217,12 +217,16 @@ function initializeRecentJobsTable(agentId) {
 
     // Deep-link support: if the page was opened with ?set=<backup_set_name>
     // (from index.html's eventsTable "Backup Set ID" links), filter the
-    // table down to just that backup set's rows and scroll to them.
+    // table down to just that backup set's rows and scroll to them. A
+    // "Show All" button (hidden by default) is revealed so the user can
+    // clear the filter and see every job again without reloading the page.
     const setParam = new URLSearchParams(window.location.search).get('set');
+    const $showAllBtn = $('#showAllJobsBtn');
     if (setParam) {
         recentJobsTable.one('draw', function () {
             const escaped = setParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             recentJobsTable.column(4).search(`^${escaped}$`, true, false).draw();
+            $showAllBtn.removeClass('d-none');
             setTimeout(function () {
                 const rowNode = recentJobsTable.column(4).nodes().to$().filter(function () {
                     return $(this).text() === setParam;
@@ -234,6 +238,15 @@ function initializeRecentJobsTable(agentId) {
             }, 100);
         });
     }
+
+    $showAllBtn.on('click', function () {
+        recentJobsTable.column(4).search('').draw();
+        $showAllBtn.addClass('d-none');
+        // Drop the ?set= param from the URL without reloading the page.
+        const url = new URL(window.location.href);
+        url.searchParams.delete('set');
+        window.history.replaceState({}, '', url);
+    });
 
     return recentJobsTable;
 }

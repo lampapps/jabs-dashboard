@@ -4,8 +4,8 @@
             <thead class="table table-striped table-bordered table-hover display responsive">
                 <tr>
                     <th>Hostname</th>
-                    <th>IP Address</th>
                     <th>Agent Type</th>
+                    <th>IP Address</th>
                     <th>Version</th>
                     <th>Last Heartbeat</th>
                     <th>Jobs</th>
@@ -20,7 +20,6 @@
                             {{ agent.hostname }}
                         </a>
                     </td>
-                    <td>{{ agent.ip_address }}</td>
                     <td>
                         {% if agent.agent_type %}
                             <span>{{ agent.agent_type }}</span>
@@ -28,6 +27,7 @@
                             <span class="text-muted">&mdash;</span>
                         {% endif %}
                     </td>
+                    <td>{{ agent.ip_address }}</td>
                     <td>
                         {% if agent.agent_version %}
                             <span>{{ agent.agent_version }}</span>

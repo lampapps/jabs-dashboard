@@ -44,7 +44,8 @@ env/
 .AppleDouble
 .LSOverride
 *.iml
-
+.markdownlint.json 
+AGENTS.md
 # Runtime data
 data/*
 !data/.gitkeep

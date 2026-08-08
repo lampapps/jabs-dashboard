@@ -24,15 +24,6 @@ def create_backup_job(agent_id, job_name, backup_type, backup_set_id, backup_set
         return c.lastrowid
 
 
-def get_backup_job(backup_job_id):
-    """Get backup job by id. Returns dict or None."""
-    with get_db_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT * FROM backup_jobs WHERE id = ?", (backup_job_id,))
-        row = c.fetchone()
-        return dict(row) if row else None
-
-
 def get_backup_job_by_run_id(run_id):
     """Get backup job by run_id (per-run UUID). Returns dict or None."""
     if not run_id:
@@ -42,27 +33,6 @@ def get_backup_job_by_run_id(run_id):
         c.execute("SELECT * FROM backup_jobs WHERE run_id = ?", (run_id,))
         row = c.fetchone()
         return dict(row) if row else None
-
-
-def get_backup_job_by_set_id(backup_set_id):
-    """Get backup job by backup_set_id. Returns dict or None."""
-    with get_db_connection() as conn:
-        c = conn.cursor()
-        c.execute("""
-            SELECT * FROM backup_jobs WHERE backup_set_id = ? ORDER BY started_at DESC LIMIT 1
-        """, (backup_set_id,))
-        row = c.fetchone()
-        return dict(row) if row else None
-
-
-def list_backup_jobs_for_agent(agent_id, limit=100):
-    """List backup jobs for an agent. Returns list of dicts."""
-    with get_db_connection() as conn:
-        c = conn.cursor()
-        c.execute("""
-            SELECT * FROM backup_jobs WHERE agent_id = ? ORDER BY started_at DESC LIMIT ?
-        """, (agent_id, limit))
-        return [dict(row) for row in c.fetchall()]
 
 
 def finalize_backup_job(backup_job_id, status, runtime_seconds=None, files_count=None,
@@ -110,15 +80,6 @@ def update_backup_job(backup_job_id, **kwargs):
 
         query = f"UPDATE backup_jobs SET {', '.join(updates)} WHERE id = ?"
         c.execute(query, params)
-        conn.commit()
-        return c.rowcount > 0
-
-
-def delete_backup_job(backup_job_id):
-    """Delete backup job (cascades to events). Returns True if successful."""
-    with get_db_connection() as conn:
-        c = conn.cursor()
-        c.execute("DELETE FROM backup_jobs WHERE id = ?", (backup_job_id,))
         conn.commit()
         return c.rowcount > 0
 
