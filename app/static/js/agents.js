@@ -3,7 +3,8 @@ function addAgent() {
     const data = {
         hostname: form.hostname.value,
         ip_address: form.ip_address.value,
-        notes: form.notes.value
+        notes: form.notes.value,
+        grace_period_minutes: parseInt(form.grace_period_minutes.value, 10)
     };
 
     fetch('/agents/add', {
@@ -52,6 +53,7 @@ function saveAgent(agentId) {
         hostname: form.hostname.value,
         ip_address: form.ip_address.value,
         notes: form.notes.value,
+        grace_period_minutes: parseInt(form.grace_period_minutes.value, 10),
         enabled: form.elements['enabled'].checked
     };
 

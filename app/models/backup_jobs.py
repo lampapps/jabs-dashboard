@@ -103,70 +103,63 @@ def list_completed_jobs_since(since_ts):
         return [dict(row) for row in c.fetchall()]
 
 
-def delete_orphaned_backup_jobs(agent_id, job_name, active_backup_set_ids):
-    """Delete backup jobs for an agent+job_name whose backup_set_id is no longer
-    present in the agent's own database (i.e. it has been rotated out).
+def delete_backup_jobs_older_than(max_days):
+    """Delete completed backup jobs older than max_days, across ALL agents.
 
-    As a safety measure, if ``active_backup_set_ids`` is empty this is a no-op —
-    an empty list from the agent could indicate a transient bug rather than a
-    genuine "nothing left" state, and we never want to silently wipe all
-    history for a job based on that ambiguity.
+    This is the dashboard's single, universal retention policy — it applies
+    the same cutoff to every agent's data regardless of any rotation/
+    retention setting configured on the agent side. Only finished jobs
+    (completed_at set) are eligible; a job still "running" is never purged.
 
     Returns the number of backup_jobs rows deleted (cascades to events).
     """
-    active_backup_set_ids = [s for s in (active_backup_set_ids or []) if s]
-    if not active_backup_set_ids:
+    if not max_days or max_days <= 0:
         return 0
+
+    cutoff = time.time() - (max_days * 86400)
 
     with get_db_connection() as conn:
         c = conn.cursor()
-        placeholders = ", ".join(["?"] * len(active_backup_set_ids))
-        c.execute(f"""
-            SELECT id FROM backup_jobs
-            WHERE agent_id = ? AND job_name = ? AND backup_set_id NOT IN ({placeholders})
-        """, (agent_id, job_name, *active_backup_set_ids))
-        orphaned_ids = [row['id'] for row in c.fetchall()]
-
-        if not orphaned_ids:
-            return 0
-
-        orphan_placeholders = ", ".join(["?"] * len(orphaned_ids))
-        c.execute(f"DELETE FROM backup_jobs WHERE id IN ({orphan_placeholders})", orphaned_ids)
+        c.execute("""
+            DELETE FROM backup_jobs
+            WHERE completed_at IS NOT NULL AND completed_at < ?
+        """, (cutoff,))
         conn.commit()
         return c.rowcount
 
 
-def delete_old_backup_jobs(agent_id, retention_days, job_name=None):
-    """Delete completed backup jobs for an agent older than retention_days.
+def mark_backup_jobs_purged(agent_id, backup_set_id):
+    """Mark every backup_jobs row for agent_id+backup_set_id as 'purged'.
 
-    For agents that don't do their own set-based rotation like
-    file_backup_agent (see delete_orphaned_backup_jobs above), this lets the
-    agent simply tell the dashboard to keep only the last N days of job
-    records (e.g. nas_sync_agent's LOG_RETENTION_DAYS).
+    Called when an agent (e.g. file_backup_agent) rotates a backup set out
+    of its own local storage/database. This does NOT delete the rows or
+    their events — it only flips their status to 'purged' so the dashboard's
+    history reflects that the underlying data no longer exists on the agent.
+    Actual row deletion is handled solely by the dashboard's own time-based
+    retention policy (see delete_backup_jobs_older_than above).
 
-    Only finished jobs (completed_at set) are eligible — a job still
-    "running" is never purged this way. If job_name is omitted, applies to
-    all of this agent's jobs.
+    A single backup_set_id can be shared by multiple backup_jobs rows (a
+    full backup plus its incremental/differential children), so all of them
+    are updated together.
 
-    Returns the number of backup_jobs rows deleted (cascades to events).
+    Returns the list of backup_job ids that were updated.
     """
-    if not retention_days or retention_days <= 0:
-        return 0
-
-    cutoff = time.time() - (retention_days * 86400)
-
     with get_db_connection() as conn:
         c = conn.cursor()
-        if job_name:
-            c.execute("""
-                DELETE FROM backup_jobs
-                WHERE agent_id = ? AND job_name = ? AND completed_at IS NOT NULL AND completed_at < ?
-            """, (agent_id, job_name, cutoff))
-        else:
-            c.execute("""
-                DELETE FROM backup_jobs
-                WHERE agent_id = ? AND completed_at IS NOT NULL AND completed_at < ?
-            """, (agent_id, cutoff))
+        c.execute(
+            "SELECT id FROM backup_jobs WHERE agent_id = ? AND backup_set_id = ?",
+            (agent_id, backup_set_id)
+        )
+        job_ids = [row['id'] for row in c.fetchall()]
+        if not job_ids:
+            return []
+
+        now = time.time()
+        placeholders = ", ".join(["?"] * len(job_ids))
+        c.execute(
+            f"UPDATE backup_jobs SET status = 'purged', updated_at = ? WHERE id IN ({placeholders})",
+            (now, *job_ids)
+        )
         conn.commit()
-        return c.rowcount
+        return job_ids
 

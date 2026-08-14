@@ -66,6 +66,8 @@ def _create_agents_table(cursor):
         notes TEXT,
         last_heartbeat REAL,
         enabled BOOLEAN DEFAULT 1,
+        grace_period_minutes INTEGER DEFAULT 60,
+        offline_notified BOOLEAN DEFAULT 0,
         created_at REAL NOT NULL,
         updated_at REAL NOT NULL
     );
@@ -143,3 +145,10 @@ def _migrate_schema(conn):
     if 'run_id' not in columns:
         c.execute("ALTER TABLE backup_jobs ADD COLUMN run_id TEXT")
         c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_backup_jobs_run_id ON backup_jobs(run_id)")
+
+    c.execute("PRAGMA table_info(agents)")
+    agent_columns = {row[1] for row in c.fetchall()}
+    if 'grace_period_minutes' not in agent_columns:
+        c.execute("ALTER TABLE agents ADD COLUMN grace_period_minutes INTEGER DEFAULT 60")
+    if 'offline_notified' not in agent_columns:
+        c.execute("ALTER TABLE agents ADD COLUMN offline_notified BOOLEAN DEFAULT 0")

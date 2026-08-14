@@ -27,11 +27,12 @@ def add_agent():
         hostname = data.get('hostname', '').strip()
         ip_address = data.get('ip_address', '').strip()
         notes = data.get('notes', '').strip()
+        grace_period_minutes = data.get('grace_period_minutes')
 
         if not hostname or not ip_address:
             return jsonify({'success': False, 'error': 'Hostname and IP address required'}), 400
 
-        agent_id, agent_key = agents.create_agent(hostname, ip_address, notes)
+        agent_id, agent_key = agents.create_agent(hostname, ip_address, notes, grace_period_minutes=grace_period_minutes)
         return jsonify({
             'success': True,
             'agent_id': agent_id,
@@ -57,8 +58,12 @@ def edit_agent(agent_id):
         ip_address = data.get('ip_address')
         notes = data.get('notes')
         enabled = data.get('enabled')
+        grace_period_minutes = data.get('grace_period_minutes')
 
-        success = agents.update_agent(agent_id, hostname=hostname, ip_address=ip_address, notes=notes, enabled=enabled)
+        success = agents.update_agent(
+            agent_id, hostname=hostname, ip_address=ip_address, notes=notes,
+            enabled=enabled, grace_period_minutes=grace_period_minutes
+        )
         if success:
             return jsonify({'success': True, 'message': 'Agent updated'}), 200
         else:

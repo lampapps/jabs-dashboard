@@ -1,3 +1,6 @@
+/* Show pointing hand curser for table row that is hyperlinked*/
+.clickable-row { cursor: pointer; }
+
 .card-body {
     min-height: 200px;
 }

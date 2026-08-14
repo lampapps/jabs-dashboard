@@ -25,7 +25,7 @@ fi
 VENV_PATH="$SCRIPT_DIR/venv"
 PYTHON_VENV="$VENV_PATH/bin/python"
 RUN_SCRIPT="$SCRIPT_DIR/run.py"
-DIGEST_SCRIPT="$SCRIPT_DIR/send_digest.py"
+SCHEDULER_SCRIPT="$SCRIPT_DIR/scheduler.py"
 PID_FILE="$SCRIPT_DIR/jabs_server.pid"
 LOG_FILE="$SCRIPT_DIR/logs/server.log"
 
@@ -301,8 +301,8 @@ setup_server() {
         echo "  $0 status  - Check status"
         echo "  $0 logs    - View logs"
         echo ""
-        echo "To enable the daily digest email, add a CRON job: crontab -e"
-        echo "  0 8 * * * cd $SCRIPT_DIR && venv/bin/python send_digest.py >> logs/digest_cron.log 2>&1"
+        echo "To enable the digest email and retention purge, add a single CRON job: crontab -e"
+        echo "  */15 * * * * cd $SCRIPT_DIR && venv/bin/python scheduler.py >> logs/scheduler_cron.log 2>&1"
         return 0
     else
         print_error "Server setup validation failed."
@@ -319,8 +319,8 @@ print_copy_paste_commands() {
     echo "  Run server in foreground (not via $0 start):"
     echo "    $PYTHON_VENV $RUN_SCRIPT"
     echo ""
-    echo "  Send the digest email manually:"
-    echo "    $PYTHON_VENV $DIGEST_SCRIPT"
+    echo "  Run the digest-email/retention-purge scheduler manually:"
+    echo "    $PYTHON_VENV $SCHEDULER_SCRIPT"
     echo ""
 }
 

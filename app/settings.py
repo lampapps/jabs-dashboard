@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 
 
-VERSION = "0.11.2"
+VERSION = "0.12.0"
 
 # --- Environment Configuration ---
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -46,3 +46,10 @@ with open(GLOBAL_CONFIG_PATH, "r", encoding="utf-8") as f:
     GLOBAL_CONFIG = yaml.safe_load(f)
 
 EMAIL_CONFIG = GLOBAL_CONFIG.get("email", {})
+
+# --- Retention Configuration ---
+# Universal retention window (in days) applied to ALL agents' backup_jobs
+# (and cascaded events) on the dashboard, regardless of any agent-side
+# rotation/retention setting. See app/services/retention.py.
+RETENTION_CONFIG = GLOBAL_CONFIG.get("retention", {})
+RETENTION_MAX_DAYS = RETENTION_CONFIG.get("max_days", 30)

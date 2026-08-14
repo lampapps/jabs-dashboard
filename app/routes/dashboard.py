@@ -14,6 +14,7 @@ import mistune
 
 from app.settings import BASE_DIR, CONFIG_DIR, GLOBAL_CONFIG_PATH, ENV_MODE
 from app.models.db_core import get_db_connection
+from app.models.agents import compute_agent_status
 from app.utils.logger import sizeof_fmt
 
 dashboard_bp = Blueprint('dashboard', 'dashboard')
@@ -27,27 +28,30 @@ def load_storage_config(config_path):
     return drives, s3_buckets
 
 def _get_agents_summary():
-    """Query registered agents + their backup metrics for the Connected Agents card."""
+    """Query registered agents + their backup metrics for the Connected Agents card.
+
+    Disabled agents are excluded entirely — this card should only ever show
+    'active' or 'offline' agents (see app/models/agents.py:compute_agent_status
+    for the shared status logic used across the dashboard).
+    """
     agents = []
     try:
         with get_db_connection() as conn:
             c = conn.cursor()
             c.execute("""
                 SELECT a.id, a.hostname, a.ip_address, a.agent_version, a.agent_type,
-                       a.last_heartbeat, a.enabled,
-                       CASE
-                           WHEN a.last_heartbeat IS NOT NULL AND
-                                a.last_heartbeat > ?
-                           THEN 'online'
-                           ELSE 'offline'
-                       END as status
+                       a.last_heartbeat, a.enabled, a.grace_period_minutes
                 FROM agents a
                 ORDER BY a.hostname ASC
-            """, (time.time() - 3600,))  # Online if heartbeat in last hour
+            """)
             rows = c.fetchall()
 
+            now = time.time()
             for row in rows:
                 agent_data = dict(row)
+                if not agent_data['enabled']:
+                    continue
+                agent_data['status'] = compute_agent_status(agent_data, now=now)
 
                 # Get backup metrics for this agent (last 30 days)
                 c.execute("""
@@ -197,20 +201,12 @@ def agent_detail(agent_id):
     """
     with get_db_connection() as conn:
         c = conn.cursor()
-        c.execute("""
-            SELECT a.*,
-                   CASE
-                       WHEN a.last_heartbeat IS NOT NULL AND a.last_heartbeat > ?
-                       THEN 'online'
-                       ELSE 'offline'
-                   END as status
-            FROM agents a
-            WHERE a.id = ?
-        """, (time.time() - 3600, agent_id))
+        c.execute("SELECT * FROM agents WHERE id = ?", (agent_id,))
         agent_row = c.fetchone()
         if not agent_row:
             abort(404)
         agent = dict(agent_row)
+        agent['status'] = compute_agent_status(agent)
 
         # Status breakdown (all-time) — powers the status doughnut chart
         c.execute("""

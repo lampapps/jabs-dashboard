@@ -189,98 +189,71 @@ X-API-Key: 9f2c6b1a4e8d3f0c7a5b2e1d6c4f8a90b3d7e2c1
 
 ---
 
-### 2. `POST /api/monitoring/sync-job-sets`
+## Data retention (dashboard-side deletion only)
 
-Reconciliation endpoint. Call this whenever the agent locally rotates/deletes
-old backup sets for a job (e.g. keeping only the last N sets), so the dashboard's
-`backup_jobs` table doesn't accumulate orphaned rows for sets that no longer
-exist on the agent.
+Agents have **no way to tell the dashboard when to delete job records** —
+there is no `sync-job-sets` or `purge-old-jobs` endpoint. The dashboard
+enforces a single, universal retention window (`retention.max_days` in its
+own `config/global.yaml`, see the dashboard's README.md) applied to **all**
+agents' data: any completed `backup_jobs` row (and its cascaded `events`)
+older than that window is deleted automatically by a scheduled
+`scheduler.py` run on the dashboard host, regardless of any
+rotation/retention setting configured on an individual agent (e.g. an
+agent's own local backup-set rotation or log-retention window is a purely
+local concern and has no effect on the dashboard's copy of the data).
 
-The dashboard deletes any `backup_jobs` rows for the given agent + `job_name`
-whose `backup_set_id` is **not** in the `active_backup_set_ids` list you send.
-Deleting a backup job cascades to delete its associated `events`.
+If your agent rotates/deletes its own local records, it is not required to
+notify the dashboard — new events keep flowing normally via
+`/api/monitoring/events`. However, if your agent tracks discrete backup
+sets locally (like `file_backup_agent`), it **should** call
+`/api/monitoring/backup-set-purged` (below) right after deleting a set
+locally, so the dashboard's history reflects that the underlying data no
+longer exists on the agent — this only marks status, it never deletes rows.
 
-**Safety note:** if `active_backup_set_ids` is an empty list (or all falsy
-values), the dashboard treats this as a no-op and deletes nothing — it will never
-wipe all history for a job based on an ambiguous/empty list. Always send the
-*complete* current list of backup_set_ids still present in your local
-database for that job — not just newly-removed ones.
+### 2. `POST /api/monitoring/backup-set-purged`
 
-#### Request body fields
+Call this right after your agent has successfully deleted a backup set's
+local files (and its own DB records, if any). The dashboard marks every
+`backup_jobs` row sharing this `backup_set_id` (for the authenticated agent)
+with `status="purged"` and logs a `"purged"` event on each. **This never
+deletes any rows** — only the dashboard's own time-based retention
+(`retention.max_days`, see above) actually removes old data.
 
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `job_name` | string | **yes** | The job whose backup sets are being reconciled. |
-| `active_backup_set_ids` | array of strings | **yes** | Full list of `backup_set_id` values still present locally for this job. Must be a JSON array (can be empty, but empty means "no changes will be made"). |
-
-#### Responses
-
-- `200 {"success": true, "deleted_jobs": <int>}`
-- `400 {"error": "Missing required field: job_name"}`
-- `400 {"error": "active_backup_set_ids must be a list"}`
-- `401 {"error": "Missing API key (X-API-Key header)"}`
-- `403 {"error": "Invalid API key"}`
-- `500 {"error": "Failed to sync job sets: <detail>"}`
-
-#### Example
-
-```json
-POST /api/monitoring/sync-job-sets
-X-API-Key: 9f2c6b1a4e8d3f0c7a5b2e1d6c4f8a90b3d7e2c1
-{
-  "job_name": "Jim-Home",
-  "active_backup_set_ids": [
-    "Jim-Home-20260718-full",
-    "Jim-Home-20260719-incr",
-    "Jim-Home-20260720-incr"
-  ]
-}
-```
-
----
-
-### 3. `POST /api/monitoring/purge-old-jobs`
-
-Time-based retention endpoint, as an alternative to `sync-job-sets` for agents
-that don't rotate discrete, identifiable backup sets (e.g. `nas_sync_agent`,
-which keeps one ongoing mirror job per pair rather than dated sets). Call this
-periodically (e.g. once per run) to tell the dashboard to keep only the last
-`retention_days` days of **completed** job records for this agent.
-
-Only jobs with a `completed_at` timestamp are eligible — a job still
-"running" is never purged this way. Deleting a backup job cascades to delete
-its associated `events`.
-
-`file_backup_agent` should **not** use this endpoint — it already purges
-correctly via its own backup-rotation logic + `sync-job-sets`.
+A single `backup_set_id` may be shared by multiple `backup_jobs` rows (a
+full backup plus its incremental/differential children) — all of them are
+marked together.
 
 #### Request body fields
 
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `retention_days` | integer | **yes** | Delete completed jobs older than this many days. Must be a positive integer. |
-| `job_name` | string | no | Restrict the purge to a single job name. Omit to apply to all of this agent's jobs. |
+| `backup_set_id` | string | **yes** | The `backup_set_id` of the set that was just deleted locally. |
+| `message` | string | no | Human-readable note; defaults to a generic message if omitted. |
+| `timestamp` | number | no | Unix epoch seconds; defaults to dashboard time if omitted. |
 
 #### Responses
 
-- `200 {"success": true, "deleted_jobs": <int>}`
-- `400 {"error": "retention_days must be an integer"}`
-- `400 {"error": "retention_days must be a positive integer"}`
+- `200 {"success": true, "purged_jobs": <int>}`
+- `400 {"error": "Missing required field: backup_set_id"}`
 - `401 {"error": "Missing API key (X-API-Key header)"}`
 - `403 {"error": "Invalid API key"}`
-- `500 {"error": "Failed to purge old jobs: <detail>"}`
+- `500 {"error": "Failed to record backup set purge: <detail>"}`
 
 #### Example
 
 ```json
-POST /api/monitoring/purge-old-jobs
+POST /api/monitoring/backup-set-purged
 X-API-Key: 9f2c6b1a4e8d3f0c7a5b2e1d6c4f8a90b3d7e2c1
 {
-  "retention_days": 30
+  "hostname": "P3Tiny",
+  "ip_address": "192.168.1.50",
+  "backup_set_id": "3f9a1c2e-...-uuid",
+  "message": "Backup set rotated out of local storage"
 }
 ```
 
 ---
+
 
 ## Building a compatible agent client — checklist
 
@@ -300,25 +273,24 @@ X-API-Key: 9f2c6b1a4e8d3f0c7a5b2e1d6c4f8a90b3d7e2c1
    (success) or `event_type="error"` (failure), including `status`,
    `duration_seconds`, `files_backed_up`, `bytes_backed_up`,
    `bytes_compressed` (success), or `error_code`/`error_message` (failure).
-7. If your agent performs local retention/rotation of backup sets, call
-   `/api/monitoring/sync-job-sets` afterward with the complete current list of
-   `backup_set_id`s still retained for that job, so the dashboard prunes anything
-   rotated out. If your agent doesn't have discrete, identifiable sets to
-   reconcile (e.g. an ongoing mirror job), call `/api/monitoring/purge-old-jobs`
-   instead with a `retention_days` value to have the dashboard purge old
-   completed job records by age.
-8. For idle periods with no active backup, you may send a bare heartbeat
+7. For idle periods with no active backup, you may send a bare heartbeat
    (`hostname`/`ip_address`/`version`/`agent_type` only, no `backup_set_id`) to
    keep the agent's "online" status and reported version/type current.
-9. Treat all requests as fire-and-forget/best-effort from the agent's
+8. Treat all requests as fire-and-forget/best-effort from the agent's
    perspective: network failures should be logged and swallowed, not block or
    fail the backup job itself (see the reference implementation's use of
    `requests` with short timeouts and broad `except requests.exceptions.RequestException`).
+9. If your agent tracks discrete backup sets locally and rotates them out
+   over time, call `/api/monitoring/backup-set-purged` right after each local
+   deletion — see "Data retention" above. Do not implement any client-side
+   call that deletes/reconciles dashboard rows directly; only the dashboard's
+   own scheduled retention purge does that.
 
 ## Reference implementation
 
 The canonical client implementation for this API is
-[agents/backup_agent/monitoring_client.py](../../agents/backup_agent/monitoring_client.py),
+[file_backup_agent/monitoring_client.py](../file_backup_agent/monitoring_client.py),
 which provides `send_event()`, `send_backup_start()`, `send_backup_stage()`,
-`send_backup_complete()`, `send_scheduler_check()`, and `sync_job_backup_sets()`
-helper functions implementing everything described above.
+`send_backup_complete()`, `send_scheduler_check()`, and
+`send_backup_set_purged()` helper functions implementing everything described
+above.

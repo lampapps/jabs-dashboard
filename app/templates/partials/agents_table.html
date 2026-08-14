@@ -5,7 +5,6 @@
                 <tr>
                     <th>Hostname</th>
                     <th>Agent Type</th>
-                    <th>IP Address</th>
                     <th>Version</th>
                     <th>Last Heartbeat</th>
                     <th>Jobs</th>
@@ -14,11 +13,14 @@
             </thead>
             <tbody>
             {% for agent in agents %}
-                <tr>
+                <tr class="clickable-row" data-href="{{ url_for('dashboard.agent_detail', agent_id=agent.id) }}">
                     <td>
-                        <a href="{{ url_for('dashboard.agent_detail', agent_id=agent.id) }}" title="View job details for {{ agent.hostname }}">
-                            {{ agent.hostname }}
-                        </a>
+                        {% if agent.hostname %}
+                            <span>{{ agent.hostname }}</span>
+                        {% else %}
+                            <span class="text-muted">&mdash;</span>
+                        {% endif %}
+
                     </td>
                     <td>
                         {% if agent.agent_type %}
@@ -27,7 +29,6 @@
                             <span class="text-muted">&mdash;</span>
                         {% endif %}
                     </td>
-                    <td>{{ agent.ip_address }}</td>
                     <td>
                         {% if agent.agent_version %}
                             <span>{{ agent.agent_version }}</span>
@@ -44,10 +45,10 @@
                     </td>
                     <td><span>{{ agent.job_count or 0 }}</span></td>
                     <td>
-                        {% if agent.status == 'online' %}
-                            <span class="badge bg-success">online</span>
+                        {% if agent.status == 'active' %}
+                            <span class="badge bg-success">Active</span>
                         {% else %}
-                            <span class="badge bg-warning">offline</span>
+                            <span class="badge bg-warning">Offline</span>
                         {% endif %}
                     </td>
                 </tr>

@@ -2,8 +2,10 @@
 
 Unlike the backup agent (which sends immediate error/backup_complete emails),
 the dashboard only sends a periodic digest email summarizing backup activity
-across all registered agents. The digest is rendered from an HTML template
-and sent whenever the HOST's cron invokes send_digest.py (see README.md).
+across all registered agents. The digest is rendered from an HTML template.
+Whether it's actually due to send is checked against the cron-like
+`email.digest.schedule` in config/global.yaml every time scheduler.py runs
+(see README.md).
 """
 
 import json
@@ -14,6 +16,7 @@ import time
 from datetime import datetime
 from email.mime.text import MIMEText
 
+from croniter import croniter
 from dotenv import load_dotenv
 from flask import render_template
 
@@ -158,4 +161,47 @@ def send_digest_email():
     if sent:
         _save_last_sent(now)
     return sent
+
+
+def maybe_send_digest():
+    """Check the configured email.digest schedule and send the digest if due.
+
+    Compares the next scheduled fire time (per the cron expression in
+    email.digest.schedule, evaluated from the last successful send) against
+    now. Safe to call on every scheduler.py run regardless of how often that
+    happens -- it only actually sends once the schedule's next occurrence has
+    passed.
+
+    Returns True if a send was attempted (regardless of whether there was
+    anything to report), False if skipped (disabled, unconfigured, or not
+    yet due).
+    """
+    digest_cfg = EMAIL_CONFIG.get("digest", {}) or {}
+    if not digest_cfg.get("enabled", False):
+        email_logger.debug("Digest email disabled (email.digest.enabled is false); skipping.")
+        return False
+
+    schedule = digest_cfg.get("schedule")
+    if not schedule:
+        email_logger.debug("No email.digest.schedule configured; skipping digest check.")
+        return False
+
+    now = time.time()
+    last_sent = _load_last_sent()
+    base = datetime.fromtimestamp(last_sent if last_sent else now - 86400)
+
+    try:
+        next_fire = croniter(schedule, base).get_next(float)
+    except (ValueError, KeyError) as e:
+        email_logger.error(f"Invalid email.digest.schedule '{schedule}': {e}")
+        return False
+
+    if next_fire > now:
+        email_logger.debug(
+            f"Digest not due yet (next fire at {datetime.fromtimestamp(next_fire)})."
+        )
+        return False
+
+    send_digest_email()
+    return True
 

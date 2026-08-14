@@ -10,7 +10,7 @@ from flask import Blueprint, jsonify, request
 from app.models.agents import get_agent_by_agent_key, update_heartbeat, update_agent_version, update_agent_type
 from app.models.backup_jobs import (
     create_backup_job, get_backup_job_by_run_id, finalize_backup_job, update_backup_job,
-    delete_orphaned_backup_jobs, delete_old_backup_jobs
+    mark_backup_jobs_purged
 )
 from app.models.events import create_event
 
@@ -121,75 +121,40 @@ def submit_event():
         return jsonify({"error": f"Failed to process event: {str(e)}"}), 500
 
 
-@agent_monitoring_bp.route('/api/monitoring/sync-job-sets', methods=['POST'])
-def sync_job_sets():
-    """Reconcile dashboard-side backup_jobs for an agent+job with the agent's own DB.
+@agent_monitoring_bp.route('/api/monitoring/backup-set-purged', methods=['POST'])
+def backup_set_purged():
+    """Record that an agent has locally rotated (deleted) a backup set.
 
-    Agents call this after rotating old backup sets out of their local database
-    (see core/backup/common.rotate_backups). The agent sends the full list of
-    backup_set_id values it still has locally for the job; any backup_jobs on
-    the dashboard for that agent+job whose backup_set_id is NOT in that list are
-    considered orphaned (rotated out on the agent) and are deleted here.
+    Marks every backup_jobs row sharing this backup_set_id for the
+    authenticated agent with status='purged' and logs a 'purged' event on
+    each — it does NOT delete any rows. The dashboard's own time-based
+    retention policy (see app/services/retention.py) is solely responsible
+    for actually deleting old rows, on its own schedule. Call this right
+    after successfully deleting a backup set's local files (and, for
+    file_backup_agent, its own DB records).
+
+    A single backup_set_id may be shared by multiple backup_jobs rows (a
+    full backup plus its incremental/differential children) — all of them
+    are marked together.
     """
     data = request.get_json()
 
-    job_name = data.get('job_name', '').strip()
-    active_backup_set_ids = data.get('active_backup_set_ids', [])
+    backup_set_id = (data.get('backup_set_id') or '').strip()
+    message = (data.get('message') or '').strip() or 'Backup set purged by agent'
+    timestamp = data.get('timestamp', time.time())
 
-    if not job_name:
-        return jsonify({"error": "Missing required field: job_name"}), 400
-
-    if not isinstance(active_backup_set_ids, list):
-        return jsonify({"error": "active_backup_set_ids must be a list"}), 400
+    if not backup_set_id:
+        return jsonify({"error": "Missing required field: backup_set_id"}), 400
 
     agent, error = _authenticate_agent()
     if error:
         return error
 
     try:
-        deleted_count = delete_orphaned_backup_jobs(agent['id'], job_name, active_backup_set_ids)
-        return jsonify({"success": True, "deleted_jobs": deleted_count}), 200
+        job_ids = mark_backup_jobs_purged(agent['id'], backup_set_id)
+        for job_id in job_ids:
+            create_event(backup_job_id=job_id, event_type='purged', message=message, timestamp=timestamp)
+        return jsonify({"success": True, "purged_jobs": len(job_ids)}), 200
     except Exception as e:
-        return jsonify({"error": f"Failed to sync job sets: {str(e)}"}), 500
-
-
-@agent_monitoring_bp.route('/api/monitoring/purge-old-jobs', methods=['POST'])
-def purge_old_jobs():
-    """Purge dashboard-side backup_jobs older than a retention window.
-
-    For agents that don't do their own set-based rotation like
-    file_backup_agent (see sync_job_sets above) — e.g. nas_sync_agent, which
-    keeps one ongoing mirror job per pair rather than dated sets — this lets
-    the agent simply say "keep the last N days of job records" (matching a
-    config value like nas_sync_agent's LOG_RETENTION_DAYS).
-
-    Only finished jobs (with a completed_at) are ever purged this way.
-
-    Request body:
-        retention_days (int, required) — delete completed jobs older than this
-        job_name (str, optional)       — restrict to a single job name;
-                                          omit to apply to all of the agent's jobs
-    """
-    data = request.get_json()
-
-    retention_days = data.get('retention_days')
-    job_name = (data.get('job_name') or '').strip() or None
-
-    try:
-        retention_days = int(retention_days)
-    except (TypeError, ValueError):
-        return jsonify({"error": "retention_days must be an integer"}), 400
-
-    if retention_days <= 0:
-        return jsonify({"error": "retention_days must be a positive integer"}), 400
-
-    agent, error = _authenticate_agent()
-    if error:
-        return error
-
-    try:
-        deleted_count = delete_old_backup_jobs(agent['id'], retention_days, job_name)
-        return jsonify({"success": True, "deleted_jobs": deleted_count}), 200
-    except Exception as e:
-        return jsonify({"error": f"Failed to purge old jobs: {str(e)}"}), 500
+        return jsonify({"error": f"Failed to record backup set purge: {str(e)}"}), 500
 

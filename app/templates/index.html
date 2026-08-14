@@ -150,7 +150,7 @@
             <div class="card mb-4">
                 <div class="card-header d-flex align-items-center justify-content-between">
                     <span>
-                        <i class="fa-regular fa-clock me-1"></i> Backup Jobs
+                        <i class="fa-regular fa-clock me-1"></i> Backup Sets
                     </span>
                 </div>
                 <div class="card-body">
@@ -187,6 +187,14 @@
         trendLabels: {{ trend_labels|tojson }},
         trendDatasets: {{ trend_datasets|tojson }}
     };
+    // Allow the Agent table to have the entire row as hyperlink
+    document.querySelectorAll('tr.clickable-row').forEach(function (row) {
+        row.addEventListener('click', function (e) {
+            // Don't hijack the click if the user clicked an actual link/button inside the row
+            if (e.target.closest('a, button')) return;
+            window.location = row.dataset.href;
+        });
+    });
 </script>
 <script src="{{ url_for('static', filename='js/index.js') }}"></script>
 {% endblock %}

@@ -45,6 +45,9 @@ function renderStatusBadge(status) {
   if (s === 'running') {
     return '<span class="badge bg-info"><i class="fas fa-spinner fa-spin me-1"></i>running</span>';
   }
+  if (s === 'purged') {
+    return '<span class="badge bg-dark"><i class="fas fa-trash me-1"></i>purged</span>';
+  }
   return `<span class="badge bg-light text-dark">${s || 'unknown'}</span>`;
 }
 // --- End Shared Status Badge Renderer ---
@@ -58,7 +61,8 @@ function renderStatusSummaryPills(statusCounts) {
     error: 'bg-danger',
     failed: 'bg-danger',
     skipped: 'bg-secondary',
-    running: 'bg-info'
+    running: 'bg-info',
+    purged: 'bg-dark'
   };
   return Object.keys(statusCounts).sort().map(function (status) {
     const count = statusCounts[status];
@@ -77,6 +81,7 @@ function getStatusChartColor(status) {
     failed: '#dc3545',
     skipped: '#6c757d',
     running: '#0dcaf0',
+    purged: '#495057',
     unknown: '#adb5bd'
   };
   return colors[(status || '').toLowerCase()] || '#0d6efd';

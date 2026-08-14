@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>JABS Agent Offline Alert</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f5f7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f7; padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#c0392b; padding:20px 28px;">
+              <span style="color:#ffffff; font-size:20px; font-weight:600;">&#9888; Agent Offline</span>
+              <div style="color:#fadbd8; font-size:13px; margin-top:4px;">
+                {{ agent.hostname }}
+              </div>
+            </td>
+          </tr>
+
+          <!-- Summary -->
+          <tr>
+            <td style="padding:24px 28px 8px 28px;">
+              <div style="font-size:14px; color:#333333; line-height:1.5;">
+                No heartbeat or event has been received from this agent within its
+                configured grace period. It is now marked <strong>Offline</strong>
+                on the JABS dashboard.
+              </div>
+            </td>
+          </tr>
+
+          <!-- Details -->
+          <tr>
+            <td style="padding:16px 28px 4px 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px; color:#333333;">
+                <tr style="border-top:1px solid #f0f0f0;">
+                  <td style="padding:8px 4px; color:#7f8c8d;">Hostname</td>
+                  <td style="padding:8px 4px;">{{ agent.hostname }}</td>
+                </tr>
+                <tr style="border-top:1px solid #f0f0f0;">
+                  <td style="padding:8px 4px; color:#7f8c8d;">Agent Type</td>
+                  <td style="padding:8px 4px;">{{ agent.agent_type or '-' }}</td>
+                </tr>
+                <tr style="border-top:1px solid #f0f0f0;">
+                  <td style="padding:8px 4px; color:#7f8c8d;">IP Address</td>
+                  <td style="padding:8px 4px;">{{ agent.ip_address }}</td>
+                </tr>
+                <tr style="border-top:1px solid #f0f0f0;">
+                  <td style="padding:8px 4px; color:#7f8c8d;">Last Heartbeat</td>
+                  <td style="padding:8px 4px;">{{ last_heartbeat_fmt }}</td>
+                </tr>
+                <tr style="border-top:1px solid #f0f0f0;">
+                  <td style="padding:8px 4px; color:#7f8c8d;">Grace Period</td>
+                  <td style="padding:8px 4px;">{{ agent.grace_period_minutes }} minutes</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 28px; border-top:1px solid #eeeeee; margin-top:12px;">
+              <div style="font-size:11px; color:#a0a0a0;">
+                Generated {{ generated_at }} by JABS. You will not receive another alert
+                for this agent until it checks in again and later goes offline again.
+              </div>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

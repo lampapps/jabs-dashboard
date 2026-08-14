@@ -58,26 +58,6 @@
                 </a>
               </li>
               <li class="nav-item dropdown
-                  {% if request.endpoint in ['configuration.edit_dashboard_config', 'security.security'] %}active{% endif %}">
-                <a class="nav-link dropdown-toggle
-                  {% if request.endpoint in ['configuration.edit_dashboard_config', 'security.security'] %}active{% endif %}"
-                  href="#" id="configDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                  Configuration
-                </a>
-                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="configDropdown">
-                  <li>
-                    <a class="dropdown-item {% if request.endpoint == 'configuration.edit_dashboard_config' %}active{% endif %}" href="{{ url_for('configuration.edit_dashboard_config') }}">
-                      <i class="fas fa-cogs me-1"></i> Dashboard
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item {% if request.endpoint == 'security.security' %}active{% endif %}" href="{{ url_for('security.security') }}">
-                      <i class="fas fa-lock me-1"></i> Security
-                    </a>
-                  </li>
-                </ul>
-              </li>
-              <li class="nav-item dropdown
                   {% if request.endpoint in ['dashboard.help', 'dashboard.documentation', 'logs.logs_view'] %}active{% endif %}">
                 <a class="nav-link dropdown-toggle
                   {% if request.endpoint in ['dashboard.help', 'dashboard.documentation', 'logs.logs_view'] %}active{% endif %}"
@@ -93,11 +73,6 @@
                   <li>
                     <a class="dropdown-item {% if request.endpoint == 'logs.logs_view' %}active{% endif %}" href="{{ url_for('logs.logs_view') }}">
                       <i class="fas fa-file-alt me-1"></i> Logs
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item {% if request.endpoint == 'dashboard.license_page' %}active{% endif %}" href="{{ url_for('dashboard.license_page') }}">
-                      <i class="fas fa-file-contract me-1"></i> License
                     </a>
                   </li>
                   <li>
