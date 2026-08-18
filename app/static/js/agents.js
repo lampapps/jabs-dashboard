@@ -1,3 +1,35 @@
+$(document).ready(function () {
+    $('#agentsTable').DataTable({
+        columnDefs: [
+            { targets: [4], orderable: false }, // Agent Key
+            { targets: [9], orderable: false, searchable: false } // Actions
+        ],
+        lengthMenu: [[25, 50, 75, 100], [25, 50, 75, 100]],
+        pageLength: 25,
+        language: {
+            search: "Filter agents:",
+            lengthMenu: "Show _MENU_ agents",
+            info: "Showing _START_ to _END_ of _TOTAL_ agents",
+        },
+        responsive: true,
+        paging: true,
+        searching: true,
+        ordering: true,
+        order: [[0, 'asc']]
+    });
+
+    // Make the entire row a link to the agent's detail page, except for
+    // actual interactive controls (buttons/links) and the responsive
+    // expand toggle. Delegated since DataTables re-renders rows on every
+    // page/sort/search, which would detach any listeners bound directly.
+    document.addEventListener('click', function (e) {
+        const row = e.target.closest('#agentsTable tr.clickable-row');
+        if (!row) return;
+        if (e.target.closest('a, button, .dtr-control')) return;
+        window.location = row.dataset.href;
+    });
+});
+
 function addAgent() {
     const form = document.getElementById('addAgentForm');
     const data = {

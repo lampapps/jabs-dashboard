@@ -7,12 +7,11 @@ cutoff is purged, regardless of any retention/rotation setting configured
 on an individual agent.
 """
 
-import logging
-
 from app.settings import RETENTION_MAX_DAYS
 from app.models.backup_jobs import delete_backup_jobs_older_than
+from app.utils.logger import setup_logger
 
-logger = logging.getLogger(__name__)
+logger = setup_logger("scheduler", log_file="scheduler.log")
 
 
 def purge_old_records():
@@ -23,9 +22,9 @@ def purge_old_records():
         logger.info("Retention purge skipped: retention.max_days is unset/disabled")
         return 0
 
+    logger.debug(f"Purging completed backup_jobs older than {RETENTION_MAX_DAYS} day(s).")
     deleted_count = delete_backup_jobs_older_than(RETENTION_MAX_DAYS)
     logger.info(
-        "Retention purge complete: deleted %s backup_jobs row(s) older than %s day(s)",
-        deleted_count, RETENTION_MAX_DAYS
+        f"Retention purge complete: deleted {deleted_count} backup_jobs row(s) older than {RETENTION_MAX_DAYS} day(s)"
     )
     return deleted_count

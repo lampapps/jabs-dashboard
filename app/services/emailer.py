@@ -13,7 +13,7 @@ import os
 import smtplib
 import socket
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 
 from croniter import croniter
@@ -24,7 +24,7 @@ from app.settings import EMAIL_CONFIG, ENV_PATH, ENV_MODE, DATA_DIR
 from app.utils.logger import setup_logger, sizeof_fmt
 from app.models.backup_jobs import list_completed_jobs_since
 
-email_logger = setup_logger("email", log_file="email.log")
+email_logger = setup_logger("scheduler", log_file="scheduler.log")
 
 load_dotenv(ENV_PATH)
 
@@ -186,20 +186,23 @@ def maybe_send_digest():
         email_logger.debug("No email.digest.schedule configured; skipping digest check.")
         return False
 
-    now = time.time()
+    # Compare as naive local datetimes throughout (rather than converting to
+    # a float/epoch timestamp) -- croniter's get_next(float) converts through
+    # UTC internally, which silently shifts the result by the local UTC
+    # offset (and can land on the wrong day) on any system not running in
+    # UTC. get_next(datetime) does not have this bug.
+    now_dt = datetime.now()
     last_sent = _load_last_sent()
-    base = datetime.fromtimestamp(last_sent if last_sent else now - 86400)
+    base = datetime.fromtimestamp(last_sent) if last_sent else (now_dt - timedelta(days=1))
 
     try:
-        next_fire = croniter(schedule, base).get_next(float)
+        next_fire = croniter(schedule, base).get_next(datetime)
     except (ValueError, KeyError) as e:
         email_logger.error(f"Invalid email.digest.schedule '{schedule}': {e}")
         return False
 
-    if next_fire > now:
-        email_logger.debug(
-            f"Digest not due yet (next fire at {datetime.fromtimestamp(next_fire)})."
-        )
+    if next_fire > now_dt:
+        email_logger.debug(f"Digest not due yet (next fire at {next_fire}).")
         return False
 
     send_digest_email()

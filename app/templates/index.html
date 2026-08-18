@@ -67,8 +67,8 @@
         <div class="col-6 col-md-4 col-xl-2 mb-3">
             <div class="card stat-card text-center">
                 <div class="card-body py-2">
-                    <div class="fs-3 fw-bold">{{ sizeof_fmt(totals.total_bytes or 0) }}</div>
-                    <div class="text-muted small text-uppercase">Data Processed</div>
+                    <div class="fs-3 fw-bold">{{ status_counts.purged or 0 }}</div>
+                    <div class="text-muted small text-uppercase">Purged</div>
                 </div>
             </div>
         </div>
@@ -132,7 +132,7 @@
         </div>
     </div>
 
-    <!-- Activity Trend -->
+    <!-- Activity Trend Chart -->
     <div class="row pb-3">
         <div class="col-12 mb-3 d-flex">
             <div class="card flex-fill">
@@ -144,7 +144,7 @@
         </div>
     </div>
 
-    <!-- Wrap the event log in a row -->
+    <!-- Events Table -->
     <div class="row">
         <div class="col-12">
             <div class="card mb-4">
@@ -187,13 +187,15 @@
         trendLabels: {{ trend_labels|tojson }},
         trendDatasets: {{ trend_datasets|tojson }}
     };
-    // Allow the Agent table to have the entire row as hyperlink
-    document.querySelectorAll('tr.clickable-row').forEach(function (row) {
-        row.addEventListener('click', function (e) {
-            // Don't hijack the click if the user clicked an actual link/button inside the row
-            if (e.target.closest('a, button')) return;
-            window.location = row.dataset.href;
-        });
+    // Allow the Agent table to have the entire row as hyperlink. Delegated
+    // from a static ancestor (not the rows themselves) since #agents-card-body
+    // is periodically replaced via AJAX (see refreshAgentsCard in index.js).
+    document.addEventListener('click', function (e) {
+        const row = e.target.closest('tr.clickable-row');
+        if (!row) return;
+        // Don't hijack the click if the user clicked an actual link/button inside the row
+        if (e.target.closest('a, button')) return;
+        window.location = row.dataset.href;
     });
 </script>
 <script src="{{ url_for('static', filename='js/index.js') }}"></script>

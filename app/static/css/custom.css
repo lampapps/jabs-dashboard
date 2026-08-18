@@ -1,6 +1,44 @@
 /* Show pointing hand curser for table row that is hyperlinked*/
 .clickable-row { cursor: pointer; }
 
+/* Match the area outside the page-container to the navbar/footer color */
+body {
+    background-color: #161718;
+}
+
+/* navbar/footer slightly lighter than the body */
+.bg-black {
+    background-color: #191a1c !important;
+}
+
+/* Light mode: same palette, inverted (navbar-dark/bg-black hardcode white
+   text/backgrounds, so they need explicit overrides to read correctly). */
+[data-bs-theme="light"] body {
+    background-color: #fafaf9;
+}
+
+[data-bs-theme="light"] .bg-black {
+    background-color: #ffffff !important;
+}
+
+[data-bs-theme="light"] .navbar-dark .navbar-brand,
+[data-bs-theme="light"] .navbar-dark .nav-link {
+    color: #212529;
+}
+
+[data-bs-theme="light"] .navbar-dark .nav-link:hover,
+[data-bs-theme="light"] .navbar-dark .nav-link.active {
+    color: #000;
+}
+
+[data-bs-theme="light"] .navbar-dark .navbar-toggler {
+    border-color: rgba(0, 0, 0, 0.15);
+}
+
+[data-bs-theme="light"] .navbar-dark .navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(0, 0, 0, 0.55)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
 .card-body {
     min-height: 200px;
 }
@@ -74,26 +112,26 @@ thead th, tfoot th {
     }
   }
 
-/* Add padding to the top of the body when using fixed-top navbar */
-/* Adjust the 56px value if your navbar height is different */
-.body-padding-fix {
-  padding-top: 45px; 
+/* Constrain page content to a readable max-width on wide/full-screen
+   displays, styled like a bootstrap card so it blends with the rest of the
+   UI. 1440px comfortably fits wide tables/charts on a 16:9 desktop monitor
+   without stretching edge-to-edge on ultrawide screens. Navbar/footer live
+   inside it, so overflow is clipped to keep their corners rounded too. */
+.page-container {
+  max-width: 1580px;
+  margin: 1.5rem auto;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 3rem);
+  background-color: var(--bs-body-bg);
+  border: var(--bs-border-width) solid var(--bs-border-color-translucent);
+  border-radius: var(--bs-border-radius-lg);
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  overflow: hidden;
 }
 
-/* Offset scroll position for fixed navbar */
-/* Adjust 60px if needed (should be >= navbar height) */
+/* Offset scroll position for in-page anchors */
 #page-top, .scroll-anchor {
-  scroll-margin-top: 60px; 
+  scroll-margin-top: 20px; 
 }
 
-#scheduledJobsMiniChart-card {
-    height: 79px !important;
-    max-height: 79px !important;
-    min-height: 79px !important;
-    overflow: hidden;
-}
-#scheduledJobsMiniChart {
-    height: 60px !important;
-    max-height: 60px !important;
-    min-height: 60px !important;
-}

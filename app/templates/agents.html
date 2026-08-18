@@ -5,11 +5,11 @@
 {% endblock %}
 
 {% block content %}
-<div class="container my-4">
+<div class="container-fluid my-4 px-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="mb-0">Registered Agents</h2>
-            <div class="text-muted small">Manage JABS Agents</div>
+            <h2 class="mb-0">Agents</h2>
+            <div class="text-muted small">Register, edit, or delete JABS agents.</div>
         </div>
         <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addAgentModal">
             <i class="fa fa-plus"></i> Register Agent
@@ -23,165 +23,166 @@
     </div>
     {% endif %}
 
-    <div class="card">
-        <table class="table table-hover mb-0">
-            <thead class="table table-striped table-bordered table-hover display responsive">
-                <tr>
-                    <th>ID</th>
-                    <th>Hostname</th>
-                    <th>Agent Type</th>
-                    <th>Version</th>
-                    <th>IP Address</th>
-                    <th>Agent Key</th>
-                    <th>Last Heartbeat</th>
-                    <th>Grace Period</th>
-                    <th>Jobs</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if agents %}
-                    {% for agent in agents %}
+    <div class="card mb-4">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <span>
+                <i class="fa-solid fa-robot me-1"></i> Agents
+            </span>
+        </div>
+        <div class="card-body">
+            <table id="agentsTable" class="table table-striped table-bordered table-hover display responsive">
+                <thead>
                     <tr>
-                        <td>
-                            <a href="{{ url_for('dashboard.agent_detail', agent_id=agent.id) }}" title="View job details for {{ agent.id }}">
-                                {{ agent.id }}
-                            </a>
-                        </td>
-                        <td>
-                            {% if agent.hostname %}
-                                <span>{{ agent.hostname }}</span>
-                            {% else %}
-                                <span class="text-muted">&mdash;</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if agent.agent_type %}
-                                <span>{{ agent.agent_type }}</span>
-                            {% else %}
-                                <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if agent.agent_version %}
-                                <span>{{ agent.agent_version }}</span>
-                            {% else %}
-                                <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ agent.ip_address }}</td>
-                        <td>
-                            <code class="small" id="agent-key-{{ agent.id }}">{{ agent.agent_key }}</code>
-                            <button class="btn btn-sm btn-link p-0 ms-1" title="Copy key" onclick="copyAgentKey('{{ agent.id }}')">
-                                <i class="fa fa-copy"></i>
-                            </button>
-                        </td>
-                        <td>
-                            {% if agent.last_heartbeat %}
-                                <small class="text-muted">{{ agent.last_heartbeat|datetimeformat }}</small>
-                            {% else %}
-                                <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span class="text-muted">{{ agent.grace_period_minutes or 60 }} min</span>
-                        </td>
-                        <td>
-                            <span>{{ agent.job_count or 0 }} jobs</span>
-                        </td>
-                        <td>
-                            {% if agent.status == 'active' %}
-                                <span class="badge bg-success">Active</span>
-                            {% elif agent.status == 'disabled' %}
-                                <span class="badge bg-secondary">Disabled</span>
-                            {% else %}
-                                <span class="badge bg-warning">Offline</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editAgentModal-{{ agent.id }}" title="Edit Agent">
-                                <i class="fa fa-edit"></i>
-                            </button>
-                            <button class="btn btn-sm btn-secondary" title="Regenerate API key" onclick="regenerateKey('{{ agent.id }}')">
-                                <i class="fa fa-key"></i>
-                            </button>
-                            <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteAgentModal-{{ agent.id }}" title="Delete Agent">
-                                <i class="fa fa-trash"></i>
-                            </button>
-                        </td>
+                        <th>Hostname</th>
+                        <th>Agent Type</th>
+                        <th>Version</th>
+                        <th>IP Address</th>
+                        <th>Agent Key</th>
+                        <th>Last Heartbeat</th>
+                        <th>Grace Period</th>
+                        <th>Jobs</th>
+                        <th>Status</th>
+                        <th>Actions</th>
                     </tr>
+                </thead>
+                <tbody>
+                    {% if agents %}
+                        {% for agent in agents %}
+                        <tr class="clickable-row" data-href="{{ url_for('dashboard.agent_detail', agent_id=agent.id) }}" title="View job details for {{ agent.id }}">
+                            <td>
+                                {% if agent.hostname %}
+                                    <span>{{ agent.hostname }}</span>
+                                {% else %}
+                                    <span class="text-muted">&mdash;</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if agent.agent_type %}
+                                    <span>{{ agent.agent_type }}</span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if agent.agent_version %}
+                                    <span>{{ agent.agent_version }}</span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ agent.ip_address }}</td>
+                            <td>
+                                <code class="small" id="agent-key-{{ agent.id }}">{{ agent.agent_key }}</code>
+                                <button class="btn btn-sm btn-link p-0 ms-1" title="Copy key" onclick="copyAgentKey('{{ agent.id }}')">
+                                    <i class="fa fa-copy"></i>
+                                </button>
+                            </td>
+                            <td>
+                                {% if agent.last_heartbeat %}
+                                    <small class="text-muted">{{ agent.last_heartbeat|datetimeformat }}</small>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="text-muted">{{ agent.grace_period_minutes or 60 }} min</span>
+                            </td>
+                            <td>
+                                <span>{{ agent.job_count or 0 }} jobs</span>
+                            </td>
+                            <td>
+                                {% if agent.status == 'active' %}
+                                    <span class="badge bg-success">Active</span>
+                                {% elif agent.status == 'disabled' %}
+                                    <span class="badge bg-secondary">Disabled</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Offline</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editAgentModal-{{ agent.id }}" title="Edit Agent">
+                                    <i class="fa fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-secondary" title="Regenerate API key" onclick="regenerateKey('{{ agent.id }}')">
+                                    <i class="fa fa-key"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteAgentModal-{{ agent.id }}" title="Delete Agent">
+                                    <i class="fa fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
 
-                    <!-- Edit Agent Modal -->
-                    <div class="modal fade" id="editAgentModal-{{ agent.id }}" tabindex="-1">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Edit Agent</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <form id="editAgentForm-{{ agent.id }}">
-                                        <div class="mb-3">
-                                            <label class="form-label">Hostname</label>
-                                            <input type="text" class="form-control" name="hostname" value="{{ agent.hostname }}" required>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">IP Address</label>
-                                            <input type="text" class="form-control" name="ip_address" value="{{ agent.ip_address }}" required>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Notes</label>
-                                            <textarea class="form-control" name="notes" rows="3">{{ agent.notes or '' }}</textarea>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Grace Period (minutes)</label>
-                                            <input type="number" class="form-control" name="grace_period_minutes" min="1" value="{{ agent.grace_period_minutes or 60 }}" required>
-                                            <small class="text-muted">How long to wait for a heartbeat/event before marking this agent Offline.</small>
-                                        </div>
-                                        <div class="mb-3">
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" name="enabled" id="enabled-{{ agent.id }}" {% if agent.enabled %}checked{% endif %}>
-                                                <label class="form-check-label" for="enabled-{{ agent.id }}">Enabled</label>
+                        <!-- Edit Agent Modal -->
+                        <div class="modal fade" id="editAgentModal-{{ agent.id }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Edit Agent</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form id="editAgentForm-{{ agent.id }}">
+                                            <div class="mb-3">
+                                                <label class="form-label">Hostname</label>
+                                                <input type="text" class="form-control" name="hostname" value="{{ agent.hostname }}" required>
                                             </div>
-                                        </div>
-                                    </form>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                    <button type="button" class="btn btn-primary" onclick="saveAgent('{{ agent.id }}')">Save Changes</button>
+                                            <div class="mb-3">
+                                                <label class="form-label">IP Address</label>
+                                                <input type="text" class="form-control" name="ip_address" value="{{ agent.ip_address }}" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Notes</label>
+                                                <textarea class="form-control" name="notes" rows="3">{{ agent.notes or '' }}</textarea>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Grace Period (minutes)</label>
+                                                <input type="number" class="form-control" name="grace_period_minutes" min="1" value="{{ agent.grace_period_minutes or 60 }}" required>
+                                                <small class="text-muted">How long to wait for a heartbeat/event before marking this agent Offline.</small>
+                                            </div>
+                                            <div class="mb-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="enabled" id="enabled-{{ agent.id }}" {% if agent.enabled %}checked{% endif %}>
+                                                    <label class="form-check-label" for="enabled-{{ agent.id }}">Enabled</label>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="button" class="btn btn-primary" onclick="saveAgent('{{ agent.id }}')">Save Changes</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Delete Agent Modal -->
-                    <div class="modal fade" id="deleteAgentModal-{{ agent.id }}" tabindex="-1">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Delete Agent</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <p>Are you sure you want to delete Agent <strong>{{ agent.hostname }}</strong>?</p>
-                                    <p class="text-warning small"><i class="fa fa-exclamation-triangle"></i> This will delete all associated jobs and events.</p>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                    <button type="button" class="btn btn-danger" onclick="deleteAgent('{{ agent.id }}')">Delete</button>
+                        <!-- Delete Agent Modal -->
+                        <div class="modal fade" id="deleteAgentModal-{{ agent.id }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Delete Agent</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>Are you sure you want to delete Agent <strong>{{ agent.hostname }}</strong>?</p>
+                                        <p class="text-warning small"><i class="fa fa-exclamation-triangle"></i> This will delete all associated jobs and events.</p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="button" class="btn btn-danger" onclick="deleteAgent('{{ agent.id }}')">Delete</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <tr>
-                        <td colspan="10" class="text-center text-muted py-4">No agents registered. Click "Register Agent" to add one.</td>
-                    </tr>
-                {% endif %}
-            </tbody>
-        </table>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">No agents registered. Click "Register Agent" to add one.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -225,5 +226,6 @@
 </div>
 {% endblock %}
 {% block scripts %}
+{{ super() }}
 <script src="{{ url_for('static', filename='js/agents.js') }}"></script>
 {% endblock %}

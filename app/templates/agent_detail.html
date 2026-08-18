@@ -10,7 +10,7 @@
     <div class="row pb-0 mt-4">
         <div class="col-12">
             <div class="d-flex align-items-center flex-wrap gap-2 mb-4">
-                <h2 class="mb-0 me-2"><i class="fa fa-server me-2"></i>{{ agent.hostname }} - {{ agent.agent_type }}</h2>
+                <h2 class="mb-0 me-2">{{ agent.hostname }} - {{ agent.agent_type }}</h2>
                 {% if agent.agent_version %}
                     <span class="badge bg-info">v{{ agent.agent_version }}</span>
                 {% endif %}
@@ -77,8 +77,8 @@
         <div class="col-6 col-md-4 col-xl-2 mb-3">
             <div class="card stat-card text-center">
                 <div class="card-body py-2">
-                    <div class="fs-3 fw-bold">{{ sizeof_fmt(totals.total_bytes or 0) }}</div>
-                    <div class="text-muted small text-uppercase">Data Processed</div>
+                    <div class="fs-3 fw-bold">{{ status_counts.purged or 0 }}</div>
+                    <div class="text-muted small text-uppercase">Purged</div>
                 </div>
             </div>
         </div>
@@ -119,6 +119,10 @@
                             <tr>
                                 <td class="text-muted">Files Processed</td>
                                 <td class="text-end fw-semibold">{{ '{:,}'.format(totals.total_files or 0) }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Data Processed</td>
+                                <td class="text-end fw-semibold">{{ sizeof_fmt(totals.total_bytes or 0) }}</td>                     
                             </tr>
                             <tr>
                                 <td class="text-muted">Avg. Runtime</td>

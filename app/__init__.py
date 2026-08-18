@@ -3,7 +3,7 @@
 import os
 from datetime import datetime
 from flask import Flask, render_template, send_from_directory
-from app.settings import TEMPLATE_DIR, STATIC_DIR, VERSION
+from app.settings import TEMPLATE_DIR, STATIC_DIR, VERSION, ENV_MODE
 from app.routes import register_blueprints
 
 def create_app():
@@ -27,6 +27,12 @@ def create_app():
     @app.context_processor
     def inject_version():
         return {"VERSION": VERSION}
+
+    @app.context_processor
+    def inject_env_mode():
+        # Default for templates that don't explicitly pass env_mode (e.g. the
+        # dev-mode banner), so it renders consistently on every page.
+        return {"env_mode": ENV_MODE}
 
     @app.route('/favicon.ico')
     def favicon():

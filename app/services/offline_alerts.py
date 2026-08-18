@@ -21,7 +21,7 @@ from app.utils.logger import setup_logger
 from app.models.agents import list_agents, set_offline_notified
 from app.services.emailer import _send_email
 
-email_logger = setup_logger("email", log_file="email.log")
+email_logger = setup_logger("scheduler", log_file="scheduler.log")
 
 
 def check_offline_agents():
@@ -34,10 +34,21 @@ def check_offline_agents():
         email_logger.debug("Offline alert email disabled (email.offline_alert.enabled is false); skipping.")
         return 0
 
+    agents = list_agents()
+    email_logger.debug(f"Checking {len(agents)} agent(s) for offline status.")
+
     sent_count = 0
-    for agent in list_agents():
-        if agent.get("status") != "offline" or agent.get("offline_notified"):
+    for agent in agents:
+        if agent.get("status") != "offline":
+            email_logger.debug(f"Agent '{agent['hostname']}' (id={agent['id']}) status is '{agent.get('status')}'; skipping.")
             continue
+        if agent.get("offline_notified"):
+            email_logger.debug(
+                f"Agent '{agent['hostname']}' (id={agent['id']}) is offline but already notified; skipping."
+            )
+            continue
+
+        email_logger.info(f"Agent '{agent['hostname']}' (id={agent['id']}) newly offline; sending alert email.")
 
         html_body = render_template(
             "email/agent_offline_email.html",
@@ -57,4 +68,5 @@ def check_offline_agents():
         else:
             email_logger.error(f"Failed to send offline alert for agent '{agent['hostname']}' (id={agent['id']})")
 
+    email_logger.debug(f"Offline alert check complete: {sent_count} alert email(s) sent.")
     return sent_count

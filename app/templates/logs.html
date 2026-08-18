@@ -11,16 +11,19 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid my-4">
-    <div class="d-flex justify-content-between align-items-center mb-4" style="max-width: 1300px; margin-left: auto; margin-right: auto;">
-        <h2 class="mb-0">Logs</h2>
-        <button id="trimLogsButton" class="btn btn-danger btn-sm">
+<div class="container-fluid my-4 px-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">Logs</h2>
+            <div class="text-muted small">All <code>*.log</code> files in <code>./logs</code> directory will appear here. Click a <span class="badge bg-secondary me-1">label</span> to filter</div>
+        </div>
+        <button id="trimLogsButton" class="btn btn-danger">
             <i class="fa fa-scissors"></i> Trim All Logs
         </button>
     </div>
 
     <!-- Breadcrumb/Jump Menu -->
-    <nav aria-label="Log navigation" class="mb-4" style="max-width: 1300px; margin-left: auto; margin-right: auto;">
+    <nav aria-label="Log navigation" class="mb-4">
         <ol class="breadcrumb flex-wrap mb-0">
             {% for name, _, _, _, _ in logs %}
             <li class="breadcrumb-item">
@@ -29,11 +32,9 @@
             {% endfor %}
         </ol>
     </nav>
-    <div class="row g-4 justify-content-center">
         {% for name, content, stats, response_codes, full_content in logs %}
-        <div class="col-12">
             <a id="log-{{ name|replace('.', '-') }}"></a>
-            <div class="card" style="max-width: 1300px; min-height: 500px; margin-left: auto; margin-right: auto;">
+            <div class="card" style="min-height: 500px;">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span class="fw-bold"><i class="fa-solid fa-file-lines"></i> {{ name }}</span>
                     <button class="btn btn-outline-danger btn-sm" onclick="purgeLog('{{ name }}')">
@@ -103,10 +104,9 @@
                 </div>
             </div>
             <!-- Back to Top link at the bottom of each card -->
-            <div class="text-end mt-1 mb-4" style="max-width: 1300px; margin-left: auto; margin-right: auto;">
+            <div class="text-end mt-1 mb-4">
                 <a href="#top" class="btn btn-link btn-sm">Back to Top</a>
             </div>
-        </div>
         <!-- View Modal -->
         <div class="modal fade" id="viewLogModal-{{ name|replace('.', '-') }}" tabindex="-1" aria-labelledby="viewLogModalLabel-{{ name|replace('.', '-') }}" aria-hidden="true">
           <div class="modal-dialog modal-lg modal-dialog-scrollable" style="max-width: 90vw;">
@@ -122,7 +122,6 @@
           </div>
         </div>
         {% endfor %}
-    </div>
 </div>
 {% endblock %}
 

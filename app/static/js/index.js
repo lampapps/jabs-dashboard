@@ -473,9 +473,10 @@ $(document).ready(function () {
     initializeTrendChart();
 
     // --- Refresh dashboard data periodically ---
-    // Events table: near real-time (short interval), matches existing behavior.
+    // Events table and Trend Chart: near real-time (short interval), matches existing behavior.
     setInterval(function () {
         eventsTable.ajax.reload(null, false);
+        trendChart.ajax.reload(null, false);
     }, 10000); // every 10 seconds
 
     // Connected Agents card, Network Storage chart, and Cloud Storage chart:
