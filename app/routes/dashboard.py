@@ -93,7 +93,7 @@ def _get_daily_status_trend(cursor, agent_id=None):
     thirty_days_ago = time.time() - 86400 * 30
     if agent_id is None:
         cursor.execute("""
-            SELECT date(started_at, 'unixepoch') as day,
+            SELECT date(started_at, 'unixepoch', 'localtime') as day,
                    COALESCE(status, 'unknown') as status,
                    COUNT(*) as count
             FROM backup_jobs
@@ -102,7 +102,7 @@ def _get_daily_status_trend(cursor, agent_id=None):
         """, (thirty_days_ago,))
     else:
         cursor.execute("""
-            SELECT date(started_at, 'unixepoch') as day,
+            SELECT date(started_at, 'unixepoch', 'localtime') as day,
                    COALESCE(status, 'unknown') as status,
                    COUNT(*) as count
             FROM backup_jobs
@@ -118,11 +118,8 @@ def _get_daily_status_trend(cursor, agent_id=None):
 
     trend_labels = []
     for i in range(29, -1, -1):
-        # UTC to match SQLite's date(started_at, 'unixepoch'), which is always
-        # UTC — using local time here caused jobs run late in the evening
-        # (local) that cross midnight UTC to fall on a day with no matching
-        # label, silently dropping them from the chart.
-        day = datetime.fromtimestamp(time.time() - 86400 * i, tz=timezone.utc).strftime('%Y-%m-%d')
+        # Local time, matching the 'localtime' modifier used in the SQL above.
+        day = datetime.fromtimestamp(time.time() - 86400 * i).strftime('%Y-%m-%d')
         trend_labels.append(day)
 
     trend_datasets = {
