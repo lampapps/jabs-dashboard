@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 
 
-VERSION = "0.12.3"
+VERSION = "0.12.4"
 
 # --- Environment Configuration ---
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -18,14 +18,15 @@ ENV_PATH = os.path.abspath(os.path.join(BASE_DIR, '.env'))
 # Load environment variables
 load_dotenv(ENV_PATH)
 
-# Environment mode (development/production)
+# Environment mode (development | production default )
+# Do not edit here, edit in .env
 ENV_MODE = os.environ.get("ENV_MODE", "production")
 
 # --- Application Configuration ---
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'app', 'templates')
 STATIC_DIR = os.path.join(BASE_DIR, 'app', 'static')
 LOCK_DIR = os.path.join(BASE_DIR, 'locks')
-CLI_SCRIPT = os.path.join(BASE_DIR, 'cli.py')
+#CLI_SCRIPT = os.path.join(BASE_DIR, 'cli.py') depreciated
 PYTHON_EXECUTABLE = sys.executable or "python3"
 
 # --- CONFIG Configuration ---

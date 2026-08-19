@@ -10,6 +10,7 @@ $(document).ready(function () {
             search: "Filter agents:",
             lengthMenu: "Show _MENU_ agents",
             info: "Showing _START_ to _END_ of _TOTAL_ agents",
+            emptyTable: "No agents registered. Click \"Register Agent\" to add one."
         },
         responsive: true,
         paging: true,

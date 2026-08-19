@@ -177,6 +177,17 @@ ensure_log_dir() {
     fi
 }
 
+# Ensure monitor badges partial exists
+ensure_monitor_badges_partial() {
+    local partial_file="$TEMPLATE_DIR/partials/monitor_badges.html"
+    if [[ ! -d "$(dirname "$partial_file")" ]]; then
+        mkdir -p "$(dirname "$partial_file")"
+    fi
+    if [[ ! -f "$partial_file" ]]; then
+        touch "$partial_file"
+    fi
+}
+
 # Check if running
 is_running() {
     if [[ -f "$PID_FILE" ]]; then
@@ -292,6 +303,7 @@ setup_server() {
     install_requirements || return 1
 
     ensure_log_dir
+    ensure_monitor_badges_partial
 
     if validate_setup; then
         print_success "Server setup complete!"
@@ -302,7 +314,7 @@ setup_server() {
         echo "  $0 logs    - View logs"
         echo ""
         echo "To enable the digest email and retention purge, add a single CRON job: crontab -e"
-        echo "  */15 * * * * cd $SCRIPT_DIR && venv/bin/python scheduler.py >> logs/scheduler_cron.log 2>&1"
+        echo "  */15 * * * * cd $SCRIPT_DIR && venv/bin/python scheduler.py >> logs/scheduler_cron.log > /dev/null 2>&1"
         return 0
     else
         print_error "Server setup validation failed."
