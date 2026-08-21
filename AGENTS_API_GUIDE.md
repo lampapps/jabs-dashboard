@@ -110,7 +110,7 @@ The primary endpoint. Used for three purposes, distinguished by `event_type`:
 
 ```json
 POST /api/monitoring/events
-X-API-Key: 9f2c6b1a4e8d3f0c7a5b2e1d6c4f8a90b3d7e2c1
+X-API-Key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 {
   "hostname": "P3Tiny",
   "ip_address": "192.168.1.50",
@@ -133,7 +133,7 @@ X-API-Key: 9f2c6b1a4e8d3f0c7a5b2e1d6c4f8a90b3d7e2c1
 
 ```json
 POST /api/monitoring/events
-X-API-Key: 9f2c6b1a4e8d3f0c7a5b2e1d6c4f8a90b3d7e2c1
+X-API-Key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 {
   "hostname": "P3Tiny",
   "ip_address": "192.168.1.50",
@@ -157,7 +157,7 @@ X-API-Key: 9f2c6b1a4e8d3f0c7a5b2e1d6c4f8a90b3d7e2c1
 
 ```json
 POST /api/monitoring/events
-X-API-Key: 9f2c6b1a4e8d3f0c7a5b2e1d6c4f8a90b3d7e2c1
+X-API-Key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 {
   "hostname": "P3Tiny",
   "ip_address": "192.168.1.50",
@@ -178,7 +178,7 @@ X-API-Key: 9f2c6b1a4e8d3f0c7a5b2e1d6c4f8a90b3d7e2c1
 
 ```json
 POST /api/monitoring/events
-X-API-Key: 9f2c6b1a4e8d3f0c7a5b2e1d6c4f8a90b3d7e2c1
+X-API-Key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 {
   "hostname": "P3Tiny",
   "ip_address": "192.168.1.50",
@@ -243,7 +243,7 @@ marked together.
 
 ```json
 POST /api/monitoring/backup-set-purged
-X-API-Key: 9f2c6b1a4e8d3f0c7a5b2e1d6c4f8a90b3d7e2c1
+X-API-Key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 {
   "hostname": "P3Tiny",
   "ip_address": "192.168.1.50",
