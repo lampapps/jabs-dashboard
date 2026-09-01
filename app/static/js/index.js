@@ -10,29 +10,22 @@ $(document).ready(function () {
             dataSrc: 'data'          // Assumes response is { "data": [...] }
         },
         columns: [
+            { data: 'host', title: 'Host' },
+            { data: 'agent_type', title: 'Agent Type' },
+            { data: 'job_name', title: 'Backup Title' },
             {
                 // Displays the human-friendly backup_set_name, but the
                 // underlying backup_set_id (unique across hosts/jobs) is
                 // used for sorting/searching via the render's 'sort'/'filter' types.
-                // Links to the matching group in that host's agent_detail
-                // Recent Jobs table so the user can jump straight to the
-                // full run history for this set.
                 data: 'backup_set_name',
                 title: 'Backup Set ID',
                 render: function (data, type, row) {
                     if (type === 'sort' || type === 'filter') {
                         return row.backup_set_id || data || '';
                     }
-                    const label = data || '';
-                    if (row.agent_id) {
-                        const url = `/agents/${row.agent_id}?set=${encodeURIComponent(label)}`;
-                        return `<a href="${url}">${label}</a>`;
-                    }
-                    return label;
+                    return data || '';
                 }
             },
-            { data: 'host', title: 'Host' },
-            { data: 'job_name', title: 'Backup Title' },
             { data: 'start_time', title: 'Start Time' },
             { data: 'last_event_time', title: 'Last Event Time' },
             {
@@ -44,7 +37,10 @@ $(document).ready(function () {
             }
         ],
         columnDefs: [
-            { targets: [1, 2, 3, 4, 5], className: 'text-center' }
+            // Column 0 is excluded: Responsive auto-assigns it the
+            // 'dtr-control' class for the mobile expand toggle, and adding
+            // our own className here would clobber that.
+            { targets: [1, 2, 4, 5, 6], className: 'text-center' }
         ],
         lengthMenu: [[25, 50, 75, 100], [25, 50, 75, 100]],
         pageLength: 25,
@@ -57,7 +53,37 @@ $(document).ready(function () {
         paging: true,
         searching: true,
         ordering: true,
-        order: [[3, 'desc']]
+        order: [[5, 'desc']],
+        // Whole row links to the matching group in that host's agent_detail
+        // Recent Jobs table, mirroring agentsTable's clickable-row behavior.
+        createdRow: function (row, data) {
+            if (data.agent_id) {
+                const url = `/agents/${data.agent_id}?set=${encodeURIComponent(data.backup_set_name || '')}`;
+                $(row).addClass('clickable-row').attr('data-href', url);
+            }
+        }
+    });
+
+    // Make the entire row a link, except for the responsive expand toggle
+    // and any interactive controls. Delegated since DataTables re-renders
+    // rows on every page/sort/search.
+    document.addEventListener('click', function (e) {
+        const row = e.target.closest('#eventsTable tr.clickable-row');
+        if (!row) return;
+        // First column is reserved for the responsive expand toggle and is
+        // never itself a navigation target, mirroring agentsTable.
+        if (e.target.closest('a, button, .dtr-control, td:first-child')) return;
+        window.location = row.dataset.href;
+    });
+
+    // Same whole-row-link behavior for the Connected Agents mini card.
+    // Delegated from a static ancestor (not the rows themselves) since
+    // #agents-card-body is periodically replaced via AJAX (refreshAgentsCard).
+    document.addEventListener('click', function (e) {
+        const row = e.target.closest('#agents-card-body tr.clickable-row');
+        if (!row) return;
+        if (e.target.closest('a, button')) return;
+        window.location = row.dataset.href;
     });
 
     // Purge dropdown logic

@@ -86,8 +86,6 @@ def _create_backup_jobs_table(cursor):
         backup_set_name TEXT NOT NULL,
         source TEXT,
         destination TEXT,
-        encrypt BOOLEAN DEFAULT 0,
-        sync BOOLEAN DEFAULT 0,
         started_at REAL NOT NULL,
         completed_at REAL,
         status TEXT DEFAULT 'running',

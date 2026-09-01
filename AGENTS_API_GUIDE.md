@@ -68,8 +68,6 @@ The primary endpoint. Used for three purposes, distinguished by `event_type`:
 | `backup_type` | string | no | e.g. `"full"`, `"incremental"`, `"differential"`. If a later event for the same job upgrades to `"full"`, the dashboard updates the stored type (never downgrades). |
 | `source` | string | no | Source path/description being backed up (only used at job creation). |
 | `destination` | string | no | Destination path/description (only used at job creation). |
-| `encrypt` | boolean | no | Whether the job encrypts output (only used at job creation). |
-| `sync` | boolean | no | Whether the job syncs to remote storage, e.g. S3 (only used at job creation). |
 | `status` | string | no | For completion events: `"success"` or `"failed"`. Defaults based on `event_type` if omitted. |
 | `duration_seconds` | number | no | Total job runtime — stored as `runtime_seconds` (completion events). |
 | `files_backed_up` | integer | no | File count processed — stored as `files_count` (completion events). |
@@ -90,7 +88,7 @@ The primary endpoint. Used for three purposes, distinguished by `event_type`:
 4. Otherwise, looks up an existing backup job by `run_id` (if provided):
    - If none exists, **creates** a new backup job (status `"running"`) using
      `job_name`, `backup_type`, `run_id`, `backup_set_id`, `backup_set_name`,
-     `source`, `destination`, `encrypt`, `sync`.
+     `source`, `destination`.
    - If one exists, reuses it (and upgrades `backup_type` to `"full"` if applicable).
 5. Creates an `events` row linked to the backup job (`event_type`, `message`, `stage`, `error_code`, `timestamp`).
 6. If `event_type` is `"backup_complete"` or `"error"`, finalizes the backup job:
@@ -123,9 +121,7 @@ X-API-Key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   "job_name": "Jim-Home",
   "backup_type": "full",
   "backup_set_id": "Jim-Home-20260720-full",
-  "backup_set_name": "Jim-Home 2026-07-20",
-  "encrypt": true,
-  "sync": true
+  "backup_set_name": "Jim-Home 2026-07-20"
 }
 ```
 
@@ -265,7 +261,7 @@ X-API-Key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
    every event for that run, so the dashboard correlates them into one backup job.
 4. Send a start/progress event with `event_type="heartbeat"`, `job_name`,
    `backup_type`, `backup_set_id`, `backup_set_name`, and optionally
-   `source`/`destination`/`encrypt`/`sync` — these are only captured the first
+   `source`/`destination` — these are only captured the first
    time the job is created for a given `run_id`.
 5. Optionally send more progress events reusing the same `run_id` and
    `backup_set_id`, varying `stage`/`message`.

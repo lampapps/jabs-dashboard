@@ -77,10 +77,10 @@ def _send_email(subject, body, html=False):
                 server.quit()
             except Exception:  # pylint: disable=broad-except
                 pass
-        email_logger.info(f"Digest email sent: '{subject}' to {to_addrs}")
+        email_logger.info(f"Email sent: '{subject}' to {to_addrs}")
         return True
     except (smtplib.SMTPException, OSError, socket.timeout) as e:
-        email_logger.error(f"Failed to send digest email '{subject}': {e}")
+        email_logger.error(f"Failed to send email '{subject}': {e}")
         return False
 
 

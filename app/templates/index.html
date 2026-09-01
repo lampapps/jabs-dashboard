@@ -157,9 +157,10 @@
                     <table id="eventsTable" class="table table-striped table-bordered table-hover display responsive">
                         <thead>
                             <tr>
-                                <th>Backup Set ID</th>
                                 <th>Host</th>
+                                <th>Type</th>
                                 <th>Backup Title</th>
+                                <th>Backup Set ID</th>
                                 <th>Start Time</th>
                                 <th>Last Event Time</th>
                                 <th>Status Summary</th>
@@ -187,16 +188,6 @@
         trendLabels: {{ trend_labels|tojson }},
         trendDatasets: {{ trend_datasets|tojson }}
     };
-    // Allow the Agent table to have the entire row as hyperlink. Delegated
-    // from a static ancestor (not the rows themselves) since #agents-card-body
-    // is periodically replaced via AJAX (see refreshAgentsCard in index.js).
-    document.addEventListener('click', function (e) {
-        const row = e.target.closest('tr.clickable-row');
-        if (!row) return;
-        // Don't hijack the click if the user clicked an actual link/button inside the row
-        if (e.target.closest('a, button')) return;
-        window.location = row.dataset.href;
-    });
 </script>
 <script src="{{ url_for('static', filename='js/index.js') }}"></script>
 {% endblock %}

@@ -5,7 +5,7 @@ from app.models.db_core import get_db_connection
 
 
 def create_backup_job(agent_id, job_name, backup_type, backup_set_id, backup_set_name,
-                      source="", destination="", encrypt=False, sync=False, run_id=None):
+                      source="", destination="", run_id=None):
     """Create a new backup job record. Returns backup_job id."""
     with get_db_connection() as conn:
         c = conn.cursor()
@@ -13,11 +13,11 @@ def create_backup_job(agent_id, job_name, backup_type, backup_set_id, backup_set
         c.execute("""
             INSERT INTO backup_jobs
             (agent_id, job_name, backup_type, run_id, backup_set_id, backup_set_name,
-             source, destination, encrypt, sync, started_at, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             source, destination, started_at, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             agent_id, job_name, backup_type, run_id, backup_set_id, backup_set_name,
-            source, destination, 1 if encrypt else 0, 1 if sync else 0,
+            source, destination,
             now, 'running', now, now
         ))
         conn.commit()

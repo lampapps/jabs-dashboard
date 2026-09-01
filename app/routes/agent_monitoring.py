@@ -78,9 +78,7 @@ def submit_event():
                 backup_set_id=backup_set_id,
                 backup_set_name=backup_set_name,
                 source=data.get('source', ''),
-                destination=data.get('destination', ''),
-                encrypt=data.get('encrypt', False),
-                sync=data.get('sync', False)
+                destination=data.get('destination', '')
             )
         else:
             backup_job_id = backup_job['id']

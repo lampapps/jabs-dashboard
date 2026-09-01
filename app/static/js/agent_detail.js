@@ -108,20 +108,6 @@ function initializeRecentJobsTable(agentId) {
                 }
             },
             { data: 'backup_set_name', title: 'Backup Set ID', visible: false },
-            {
-                data: null,
-                title: 'Options',
-                orderable: false,
-                render: function (data, type, row) {
-                    const encryptIcon = (row.encrypt === true || row.encrypt === 1)
-                        ? '<i class="fa fa-lock text-warning me-2" title="Encryption enabled"></i>'
-                        : '<i class="fa fa-lock-open text-secondary me-2" title="Encryption disabled"></i>';
-                    const syncIcon = (row.sync === true || row.sync === 1)
-                        ? '<i class="fa fa-cloud-upload-alt text-success" title="Sync enabled"></i>'
-                        : '<i class="fa fa-cloud-upload-alt text-secondary" title="Sync disabled"></i>';
-                    return encryptIcon + syncIcon;
-                }
-            },
             { data: 'runtime', title: 'Runtime' },
             {
                 data: 'files_count',
@@ -154,8 +140,8 @@ function initializeRecentJobsTable(agentId) {
             }
         ],
         columnDefs: [
-            { targets: [2, 5, 6, 9, 10], className: 'text-center' },
-            { targets: [7, 8], className: 'text-end' }
+            { targets: [2, 5, 8, 9], className: 'text-center' },
+            { targets: [6, 7], className: 'text-end' }
         ],
         lengthMenu: [[25, 50, 75, 100], [25, 50, 75, 100]],
         pageLength: 25,

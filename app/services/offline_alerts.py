@@ -48,7 +48,7 @@ def check_offline_agents():
             )
             continue
 
-        email_logger.info(f"Agent '{agent['hostname']}' (id={agent['id']}) newly offline; sending alert email.")
+        email_logger.debug(f"Agent '{agent['hostname']}' (id={agent['id']}) newly offline; sending alert email.")
 
         html_body = render_template(
             "email/agent_offline_email.html",
@@ -64,7 +64,7 @@ def check_offline_agents():
         if _send_email(subject, html_body, html=True):
             set_offline_notified(agent["id"], True)
             sent_count += 1
-            email_logger.info(f"Sent offline alert for agent '{agent['hostname']}' (id={agent['id']})")
+            email_logger.debug(f"Sent offline alert for agent '{agent['hostname']}' (id={agent['id']})")
         else:
             email_logger.error(f"Failed to send offline alert for agent '{agent['hostname']}' (id={agent['id']})")
 
