@@ -43,7 +43,7 @@ function renderStatusBadge(status) {
     return `<span class="badge bg-secondary">${s}</span>`;
   }
   if (s === 'stopped') {
-    return '<span class="badge bg-warning text-dark"><i class="fas fa-pause me-1"></i>stopped</span>';
+    return '<span class="badge bg-warning text-dark">stopped</span>';
   }
   if (s === 'running') {
     return '<span class="badge bg-info"><i class="fas fa-spinner fa-spin me-1"></i>running</span>';

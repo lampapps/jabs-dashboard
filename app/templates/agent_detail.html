@@ -19,7 +19,7 @@
                 {% elif agent.status == 'disabled' %}
                     <span class="badge bg-secondary">Disabled</span>
                 {% else %}
-                    <span class="badge bg-warning">Offline</span>
+                    <span class="badge bg-warning text-dark">Offline</span>
                 {% endif %}
                 <span class="text-muted small ms-2">
                     <i class="fa fa-network-wired me-1"></i>{{ agent.ip_address }}
