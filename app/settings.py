@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 
 
-VERSION = "0.12.7"
+VERSION = "0.12.8"
 
 # --- Environment Configuration ---
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -49,8 +49,22 @@ with open(GLOBAL_CONFIG_PATH, "r", encoding="utf-8") as f:
 EMAIL_CONFIG = GLOBAL_CONFIG.get("email", {})
 
 # --- Retention Configuration ---
-# Universal retention window (in days) applied to ALL agents' backup_jobs
-# (and cascaded events) on the dashboard, regardless of any agent-side
-# rotation/retention setting. See app/services/retention.py.
+# Per-agent-type deletion policy applied on the dashboard (see
+# app/services/retention.py and app/models/backup_jobs.py). RETENTION_DEFAULT
+# applies to any agent_type not listed in RETENTION_BY_AGENT_TYPE, which
+# holds only the overridden fields merged on top of the default. Each
+# policy dict has "max_days" and "mode" ("purged_only" or "all").
+# RETENTION_MAX_DAYS (the default's max_days) is also used as the Job
+# Activity graph's day range (app/routes/dashboard.py), so the graph stays
+# limited to a fixed window even though older, retained jobs remain in the
+# database.
 RETENTION_CONFIG = GLOBAL_CONFIG.get("retention", {})
-RETENTION_MAX_DAYS = RETENTION_CONFIG.get("max_days", 30)
+RETENTION_DEFAULT = {
+    "max_days": RETENTION_CONFIG.get("max_days", 90),
+    "mode": RETENTION_CONFIG.get("mode", "purged_only"),
+}
+RETENTION_BY_AGENT_TYPE = {
+    agent_type: {**RETENTION_DEFAULT, **overrides}
+    for agent_type, overrides in RETENTION_CONFIG.get("by_agent_type", {}).items()
+}
+RETENTION_MAX_DAYS = RETENTION_DEFAULT["max_days"]

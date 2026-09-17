@@ -12,7 +12,7 @@ from flask import Blueprint, render_template, current_app, abort
 from markupsafe import Markup
 import mistune
 
-from app.settings import BASE_DIR, CONFIG_DIR, GLOBAL_CONFIG_PATH, ENV_MODE
+from app.settings import BASE_DIR, CONFIG_DIR, GLOBAL_CONFIG_PATH, ENV_MODE, RETENTION_MAX_DAYS
 from app.models.db_core import get_db_connection
 from app.models.agents import compute_agent_status
 from app.utils.logger import sizeof_fmt
@@ -83,14 +83,19 @@ def _get_agents_summary():
         agents = []
     return agents
 
-def _get_daily_status_trend(cursor, agent_id=None):
-    """Return a 30-day, zero-filled, per-status daily job-count breakdown.
+def _get_daily_status_trend(cursor, agent_id=None, days=None):
+    """Return a zero-filled, per-status daily job-count breakdown spanning
+    `days` days (defaults to RETENTION_MAX_DAYS). Non-purged jobs older than
+    this window still exist in the database (they're retained indefinitely)
+    but simply won't appear on the graph, which is intentionally capped to
+    this fixed window.
 
     Returns (trend_labels, trend_datasets) where trend_datasets is a dict of
     {status: [count_per_day, ...]} aligned with trend_labels, for rendering
     a status-segmented (stacked) Job Activity bar chart.
     """
-    thirty_days_ago = time.time() - 86400 * 30
+    days = days or RETENTION_MAX_DAYS
+    window_start = time.time() - 86400 * days
     if agent_id is None:
         cursor.execute("""
             SELECT date(started_at, 'unixepoch', 'localtime') as day,
@@ -99,7 +104,7 @@ def _get_daily_status_trend(cursor, agent_id=None):
             FROM backup_jobs
             WHERE started_at > ?
             GROUP BY day, status
-        """, (thirty_days_ago,))
+        """, (window_start,))
     else:
         cursor.execute("""
             SELECT date(started_at, 'unixepoch', 'localtime') as day,
@@ -108,7 +113,7 @@ def _get_daily_status_trend(cursor, agent_id=None):
             FROM backup_jobs
             WHERE agent_id = ? AND started_at > ?
             GROUP BY day, status
-        """, (agent_id, thirty_days_ago))
+        """, (agent_id, window_start))
 
     daily_status_counts = {}
     statuses_seen = set()
@@ -117,7 +122,7 @@ def _get_daily_status_trend(cursor, agent_id=None):
         statuses_seen.add(row['status'])
 
     trend_labels = []
-    for i in range(29, -1, -1):
+    for i in range(days - 1, -1, -1):
         # Local time, matching the 'localtime' modifier used in the SQL above.
         day = datetime.fromtimestamp(time.time() - 86400 * i).strftime('%Y-%m-%d')
         trend_labels.append(day)
@@ -131,9 +136,9 @@ def _get_daily_status_trend(cursor, agent_id=None):
 
 
 def _get_global_stats():
-    """Query aggregate backup_jobs totals/status counts and a 30-day activity
-    trend across all registered agents, for the dashboard's Stat Cards and
-    Activity Trend chart.
+    """Query aggregate backup_jobs totals/status counts and an activity
+    trend (spanning RETENTION_MAX_DAYS days) across all registered
+    agents, for the dashboard's Stat Cards and Activity Trend chart.
     """
     with get_db_connection() as conn:
         c = conn.cursor()
@@ -157,8 +162,8 @@ def _get_global_stats():
         """)
         totals = dict(c.fetchone())
 
-        # 30-day activity trend, segmented by status (continuous series,
-        # zero-filled for empty days) — powers the stacked Activity Trend chart.
+        # Activity trend, segmented by status (continuous series, zero-filled
+        # for empty days) — powers the stacked Activity Trend chart.
         trend_labels, trend_datasets = _get_daily_status_trend(c)
 
     return status_counts, totals, trend_labels, trend_datasets
@@ -183,6 +188,7 @@ def dashboard():
         totals=totals,
         trend_labels=trend_labels,
         trend_datasets=trend_datasets,
+        trend_days=RETENTION_MAX_DAYS,
         sizeof_fmt=sizeof_fmt
     )
 
@@ -196,9 +202,9 @@ def agents_card_partial():
 def agent_detail(agent_id):
     """Render a detail dashboard for a single registered agent.
 
-    Shows aggregate event/status counts, backup-type breakdown, a 30-day
-    activity trend, and a recent-jobs table — i.e. everything the agent
-    reports to the dashboard.
+    Shows aggregate event/status counts, backup-type breakdown, an activity
+    trend (spanning RETENTION_MAX_DAYS days), and a recent-jobs
+    table — i.e. everything the agent reports to the dashboard.
     """
     with get_db_connection() as conn:
         c = conn.cursor()
@@ -239,8 +245,8 @@ def agent_detail(agent_id):
         """, (agent_id,))
         totals = dict(c.fetchone())
 
-        # 30-day activity trend, segmented by status (continuous series,
-        # zero-filled for empty days) — powers the stacked Activity Trend chart.
+        # Activity trend, segmented by status (continuous series, zero-filled
+        # for empty days) — powers the stacked Activity Trend chart.
         trend_labels, trend_datasets = _get_daily_status_trend(c, agent_id=agent_id)
 
         # Recent jobs are now fetched client-side via /api/agent_jobs/<agent_id>
@@ -254,6 +260,7 @@ def agent_detail(agent_id):
         totals=totals,
         trend_labels=trend_labels,
         trend_datasets=trend_datasets,
+        trend_days=RETENTION_MAX_DAYS,
         sizeof_fmt=sizeof_fmt,
         env_mode=ENV_MODE
     )

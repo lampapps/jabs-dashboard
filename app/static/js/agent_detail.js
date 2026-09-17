@@ -74,7 +74,9 @@ function initializeAgentDetailCharts(detail) {
             datasets: trendStatuses.map(status => ({
                 label: status,
                 data: trendDatasets[status],
-                backgroundColor: getStatusChartColor(status)
+                backgroundColor: getStatusChartColor(status),
+                barPercentage: 1.0,
+                categoryPercentage: 0.95
             }))
         },
         options: {
@@ -82,7 +84,7 @@ function initializeAgentDetailCharts(detail) {
             maintainAspectRatio: false,
             plugins: { legend: { display: trendStatuses.length > 1, position: 'bottom' } },
             scales: {
-                x: { stacked: true },
+                x: { stacked: true, ticks: { display: false } },
                 y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
             }
         }

@@ -24,7 +24,7 @@
 
     <!-- Stat Cards -->
     <div class="row pb-2">
-        <div class="col-6 col-md-4 col-xl-2 mb-3">
+        <div class="col-6 col-md-4 col-xl mb-3">
             <div class="card stat-card text-center">
                 <div class="card-body py-2">
                     <div class="fs-3 fw-bold">{{ totals.total_jobs or 0 }}</div>
@@ -32,7 +32,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-4 col-xl-2 mb-3">
+        <div class="col-6 col-md-4 col-xl mb-3">
             <div class="card stat-card text-center border-success">
                 <div class="card-body py-2">
                     <div class="fs-3 fw-bold text-success">{{ (status_counts.success or 0) + (status_counts.completed or 0) }}</div>
@@ -40,7 +40,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-4 col-xl-2 mb-3">
+        <div class="col-6 col-md-4 col-xl mb-3">
             <div class="card stat-card text-center border-danger">
                 <div class="card-body py-2">
                     <div class="fs-3 fw-bold text-danger">{{ (status_counts.error or 0) + (status_counts.failed or 0) }}</div>
@@ -48,7 +48,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-4 col-xl-2 mb-3">
+        <div class="col-6 col-md-4 col-xl mb-3">
             <div class="card stat-card text-center border-secondary">
                 <div class="card-body py-2">
                     <div class="fs-3 fw-bold text-secondary">{{ status_counts.skipped or 0 }}</div>
@@ -56,7 +56,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-4 col-xl-2 mb-3">
+        <div class="col-6 col-md-4 col-xl mb-3">
             <div class="card stat-card text-center border-info">
                 <div class="card-body py-2">
                     <div class="fs-3 fw-bold text-info">{{ status_counts.running or 0 }}</div>
@@ -64,7 +64,15 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-4 col-xl-2 mb-3">
+        <div class="col-6 col-md-4 col-xl mb-3">
+            <div class="card stat-card text-center border-warning">
+                <div class="card-body py-2">
+                    <div class="fs-3 fw-bold text-warning">{{ status_counts.stopped or 0 }}</div>
+                    <div class="text-muted small text-uppercase">Stopped</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl mb-3">
             <div class="card stat-card text-center">
                 <div class="card-body py-2">
                     <div class="fs-3 fw-bold">{{ status_counts.purged or 0 }}</div>
@@ -136,7 +144,7 @@
     <div class="row pb-3">
         <div class="col-12 mb-3 d-flex">
             <div class="card flex-fill">
-                <div class="card-header"><i class="fa fa-chart-line me-1"></i> Job Activity (Last 30 Days)</div>
+                <div class="card-header"><i class="fa fa-chart-line me-1"></i> Job Activity (Last {{ trend_days }} Days)</div>
                 <div class="card-body" style="height: 260px;">
                     <canvas id="trendChart"></canvas>
                 </div>

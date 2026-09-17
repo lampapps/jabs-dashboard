@@ -455,9 +455,9 @@ $(document).ready(function () {
             });
     }
 
-    // Activity Trend chart (all agents, last 30 days) — data is bootstrapped
-    // server-side into window.DASHBOARD_TREND (see index.html). Segmented
-    // (stacked) by job status.
+    // Activity Trend chart (all agents, last N days per retention.max_days)
+    // — data is bootstrapped server-side into window.DASHBOARD_TREND (see
+    // index.html). Segmented (stacked) by job status.
     let trendChart = null;
     function initializeTrendChart() {
         const trend = window.DASHBOARD_TREND || {};
@@ -478,7 +478,9 @@ $(document).ready(function () {
                 datasets: trendStatuses.map(status => ({
                     label: status,
                     data: trendDatasets[status],
-                    backgroundColor: getStatusChartColor(status)
+                    backgroundColor: getStatusChartColor(status),
+                    barPercentage: 1.0,
+                    categoryPercentage: 0.95
                 }))
             },
             options: {
@@ -486,7 +488,7 @@ $(document).ready(function () {
                 maintainAspectRatio: false,
                 plugins: { legend: { display: trendStatuses.length > 1, position: 'bottom' } },
                 scales: {
-                    x: { stacked: true },
+                    x: { stacked: true, ticks: { display: false } },
                     y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
                 }
             }

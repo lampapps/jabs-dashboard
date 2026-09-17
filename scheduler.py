@@ -11,8 +11,9 @@ rather than an in-process background thread:
   the moment an enabled agent's grace period lapses without a heartbeat/event
   (see app/services/offline_alerts.py:check_offline_agents).
 - Retention purge: runs unconditionally on every invocation, deleting
-  completed backup_jobs (and cascaded events) older than
-  `retention.max_days` (see app/services/retention.py).
+  'purged' status backup_jobs (and cascaded events) older than
+  `retention.max_days` (see app/services/retention.py). Non-purged rows are
+  never automatically deleted.
 
 This keeps scheduling independent of whether the web server process is
 running, and mirrors how the backup agent's own scheduler is invoked

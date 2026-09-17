@@ -7,12 +7,12 @@ The dashboard is standalone so it can be deployed on its own machine, separate f
 ## Features
 
 * Web dashboard showing connected agents and backup jobs with a
-  30-day Job Activity trend chart segmented by job status (success/failed/
-  skipped/running)
+  Job Activity trend chart segmented by job status (success/failed/
+  skipped/running), spanning `retention.max_days` days
 * Digest email of all backup jobs monitored
 * Network drive an AWS S3 storage usage charts
 * Event ingestion API used by agents to report backup activity, plus a
-  universal, dashboard-side retention purge (see Retention Purge below).
+  per-agent-type-aware retention purge (see Retention Purge below).
 * Dashboard log viewer
 * SQLite storage
 
@@ -127,20 +127,38 @@ queries `backup_jobs` for jobs completed since the last successful send
 
 ### Retention purge
 
-Enforces a single, universal retention window — `retention.max_days` in
-`config/global.yaml` — applied to **all** agents' data. Any completed
-`backup_jobs` row (and its cascaded `events`) older than that window is
-purged, regardless of any rotation/retention setting configured on an
-individual agent. Agents have no API to tell the dashboard when to purge
-their own records; the dashboard decides this entirely on its own.
+Deletes `backup_jobs` rows (and their cascaded `events`) per an
+agent-type-aware policy, configured in `config/global.yaml`. Each policy
+has a `max_days` and a `mode`:
+
+- `purged_only` — only rows an agent has explicitly marked
+  `status="purged"` (see "Data retention" in AGENTS_API_GUIDE.md) are
+  deleted, once older than `max_days` (measured from when marked purged).
+  Everything else is kept indefinitely. Use for agents (e.g.
+  `file_backup_agent`) that report purged sets themselves.
+- `all` — any row is deleted once older than `max_days` (measured from
+  `started_at`), regardless of status. Use for agents (e.g.
+  `nas_sync_agent`) that never mark rows purged, so their history doesn't
+  grow forever.
+
+The top-level `max_days`/`mode` are the default, applied to any agent
+whose `agent_type` isn't listed under `by_agent_type`. `by_agent_type` keys
+must match the `agent_type` string an agent registers with. The default's
+`max_days` also sets how many days the Job Activity graph (index.html /
+agent_detail.html) shows.
 
 ```yaml
 retention:
   max_days: 30
+  mode: purged_only
+  by_agent_type:
+    "NAS Sync":
+      mode: all
 ```
 
 Unlike the digest email, the purge is unconditional — it runs on every
-`scheduler.py` invocation, deleting whatever has aged past `max_days`.
+`scheduler.py` invocation, deleting whatever has become eligible per each
+agent's policy.
 
 ### Offline agent alert
 

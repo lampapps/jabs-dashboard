@@ -68,12 +68,31 @@ email:
     enabled: true                     # true | false - Enable/disable offline agent alerts
 
 # --- Retention Configuration ---
-# Universal retention window applied to ALL agents' data on the dashboard,
-# regardless of any retention/rotation setting configured on an individual
-# agent. Once a backup_jobs record's completion time is older than
-# max_days, it (and its cascaded events) is purged from the dashboard's
-# database. Checked/purged every time scheduler.py runs -- see README.md for
-# the recommended crontab entry.
+# Deletion policy for backup_jobs (and cascaded events) rows on the
+# dashboard. `max_days`/`mode` at the top level are the default, applied to
+# any agent whose agent_type isn't listed under by_agent_type. `mode`
+# controls WHICH rows are eligible for deletion once older than max_days:
+#   purged_only - only rows the agent has explicitly marked status='purged'
+#                 (age measured from when marked purged, not original
+#                 completion). Use for agents that report purged sets
+#                 themselves (e.g. file_backup_agent) -- everything else is
+#                 kept indefinitely.
+#   all         - any row regardless of status (age measured from
+#                 started_at). Use for agents that never mark rows as
+#                 purged (e.g. nas_sync_agent), so their history doesn't
+#                 grow forever.
+# by_agent_type keys must match the `agent_type` string an agent registers
+# with the dashboard as (see AGENTS_API_GUIDE.md / that agent's own
+# monitoring client). Only override the fields you need; unlisted fields
+# inherit from the top-level default.
+# The top-level max_days also sets the Job Activity graph's day range
+# (index.html/agent_detail.html), independent of how far back retained
+# data goes. Checked/purged every time scheduler.py runs -- see README.md
+# for the recommended crontab entry.
 retention:
-  max_days: 30                        # Days of completed job history to keep, across all agents
+  max_days: 30                        # Default days before eligible records are deleted; also the Job Activity graph's day range
+  mode: purged_only                   # Default deletion mode: purged_only | all
+  by_agent_type:                      # Optional per-agent-type overrides, keyed by agent_type
+    "NAS Sync":
+      mode: all                       # nas_sync_agent never marks rows purged, so delete all rows after max_days
 

@@ -1,30 +1,30 @@
-"""Universal, dashboard-side retention/purge policy.
+"""Dashboard-side, per-agent-type retention/purge policy.
 
-Unlike the old per-agent rotation reconciliation, this applies a single
-`retention.max_days` cutoff (see config/global.yaml) to ALL agents' data —
-any completed backup_jobs row (and its cascaded events) older than the
-cutoff is purged, regardless of any retention/rotation setting configured
-on an individual agent.
+Each agent_type gets a policy of {"max_days": int, "mode": "purged_only" |
+"all"} (see config/global.yaml). "purged_only" only deletes rows an agent
+has explicitly marked status='purged' (age measured from when marked
+purged) -- everything else is kept indefinitely. "all" deletes any row of
+that age regardless of status -- for agents that never mark rows purged.
+Agent types not explicitly configured use RETENTION_DEFAULT. The default's
+max_days is also used as the Job Activity graph's day range (see
+app/routes/dashboard.py).
 """
 
-from app.settings import RETENTION_MAX_DAYS
-from app.models.backup_jobs import delete_backup_jobs_older_than
+from app.settings import RETENTION_DEFAULT, RETENTION_BY_AGENT_TYPE
+from app.models.backup_jobs import delete_expired_backup_jobs
 from app.utils.logger import setup_logger
 
 logger = setup_logger("scheduler", log_file="scheduler.log")
 
 
 def purge_old_records():
-    """Purge completed backup_jobs (and cascaded events) older than
-    RETENTION_MAX_DAYS, across all agents. Returns the number of rows deleted.
+    """Purge expired backup_jobs (and cascaded events) per each agent_type's
+    retention policy, across all agents. Returns the number of rows deleted.
     """
-    if not RETENTION_MAX_DAYS or RETENTION_MAX_DAYS <= 0:
-        logger.info("Retention purge skipped: retention.max_days is unset/disabled")
-        return 0
-
-    logger.debug(f"Purging completed backup_jobs older than {RETENTION_MAX_DAYS} day(s).")
-    deleted_count = delete_backup_jobs_older_than(RETENTION_MAX_DAYS)
-    logger.info(
-        f"Retention purge complete: deleted {deleted_count} backup_jobs row(s) older than {RETENTION_MAX_DAYS} day(s)"
+    logger.debug(
+        f"Purging backup_jobs per retention policy (default={RETENTION_DEFAULT}, "
+        f"overrides={RETENTION_BY_AGENT_TYPE})."
     )
+    deleted_count = delete_expired_backup_jobs(RETENTION_DEFAULT, RETENTION_BY_AGENT_TYPE)
+    logger.info(f"Retention purge complete: deleted {deleted_count} backup_jobs row(s)")
     return deleted_count

@@ -56,7 +56,7 @@ The primary endpoint. Used for three purposes, distinguished by `event_type`:
 | `hostname` | string | no | Informational, shown on the Agents pages. Not used for auth — set via the `X-API-Key` header instead. |
 | `ip_address` | string | no | Informational only. |
 | `version` | string | no | Agent software version; stored on the agent record. |
-| `agent_type` | string | no | e.g. `"backup_agent"`; stored on the agent record. |
+| `agent_type` | string | no | e.g. `"File Backup"`, `"NAS Sync"`; stored on the agent record. Also the key the dashboard operator uses to configure a per-agent-type retention policy for your agent (see "Data retention" below) — agree on a stable string with the dashboard operator. |
 | `event_type` | string | no* | `"heartbeat"`, `"backup_complete"`, or `"error"`. Required for job/event-tracking calls; not needed for plain heartbeats with no `backup_set_id`. |
 | `message` | string | no | Human-readable description of the event. |
 | `stage` | string | no | Short label for current backup stage (progress events). |
@@ -189,14 +189,27 @@ X-API-Key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 Agents have **no way to tell the dashboard when to delete job records** —
 there is no `sync-job-sets` or `purge-old-jobs` endpoint. The dashboard
-enforces a single, universal retention window (`retention.max_days` in its
-own `config/global.yaml`, see the dashboard's README.md) applied to **all**
-agents' data: any completed `backup_jobs` row (and its cascaded `events`)
-older than that window is deleted automatically by a scheduled
-`scheduler.py` run on the dashboard host, regardless of any
-rotation/retention setting configured on an individual agent (e.g. an
-agent's own local backup-set rotation or log-retention window is a purely
-local concern and has no effect on the dashboard's copy of the data).
+applies a per-agent-type retention policy (`retention` in its own
+`config/global.yaml`, see the dashboard's README.md), keyed by the
+`agent_type` string your agent reports in its `/api/monitoring/events`
+calls (see the request body table above). Each policy is one of:
+
+- `purged_only` (the default) — only rows your agent has explicitly marked
+  `status="purged"` (see below) are ever deleted, once older than the
+  policy's `max_days`, measured from when they were marked purged.
+  Everything else your agent reports is kept indefinitely.
+- `all` — any row of your agent's is deleted once older than `max_days`
+  (measured from when the job started), regardless of status. This is
+  meant for agents that have no concept of "purged" sets and would
+  otherwise accumulate history forever.
+
+If your `agent_type` isn't explicitly configured on the dashboard, it falls
+back to the default policy (`purged_only` unless the dashboard operator
+changed it) — meaning your agent's rows are retained indefinitely unless
+you also call `backup-set-purged` below. If you're building a new agent
+(e.g. something Restic-snapshot-based) and want your history reliably
+pruned, either mark sets `purged` as you rotate them, or ask the dashboard
+operator to configure `mode: all` for your `agent_type`.
 
 If your agent rotates/deletes its own local records, it is not required to
 notify the dashboard — new events keep flowing normally via
@@ -204,7 +217,8 @@ notify the dashboard — new events keep flowing normally via
 sets locally (like `file_backup_agent`), it **should** call
 `/api/monitoring/backup-set-purged` (below) right after deleting a set
 locally, so the dashboard's history reflects that the underlying data no
-longer exists on the agent — this only marks status, it never deletes rows.
+longer exists on the agent — this only marks status; actual row deletion
+still depends on your agent_type's configured policy.
 
 ### 2. `POST /api/monitoring/backup-set-purged`
 
@@ -212,8 +226,9 @@ Call this right after your agent has successfully deleted a backup set's
 local files (and its own DB records, if any). The dashboard marks every
 `backup_jobs` row sharing this `backup_set_id` (for the authenticated agent)
 with `status="purged"` and logs a `"purged"` event on each. **This never
-deletes any rows** — only the dashboard's own time-based retention
-(`retention.max_days`, see above) actually removes old data.
+deletes any rows immediately** — only the dashboard's own retention policy
+for your `agent_type` (see above) removes these rows, and only once its
+`max_days` has passed since they were marked purged.
 
 A single `backup_set_id` may be shared by multiple `backup_jobs` rows (a
 full backup plus its incremental/differential children) — all of them are

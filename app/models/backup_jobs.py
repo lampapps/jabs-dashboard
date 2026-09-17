@@ -103,29 +103,67 @@ def list_completed_jobs_since(since_ts):
         return [dict(row) for row in c.fetchall()]
 
 
-def delete_backup_jobs_older_than(max_days):
-    """Delete completed backup jobs older than max_days, across ALL agents.
+def delete_expired_backup_jobs(default_policy, by_agent_type=None):
+    """Delete backup_jobs rows (and cascaded events) per an agent-type-aware
+    retention policy.
 
-    This is the dashboard's single, universal retention policy — it applies
-    the same cutoff to every agent's data regardless of any rotation/
-    retention setting configured on the agent side. Only finished jobs
-    (completed_at set) are eligible; a job still "running" is never purged.
+    Each policy is a dict: {"max_days": int, "mode": "purged_only" | "all"}.
+    - mode "purged_only": only rows with status='purged' are eligible,
+      measured from updated_at (when marked purged). Use for agents that
+      explicitly report purged sets (e.g. file_backup_agent) -- all other
+      rows are kept indefinitely.
+    - mode "all": any row is eligible regardless of status, measured from
+      started_at. Use for agents that never mark rows as purged (e.g.
+      nas_sync_agent), so their history doesn't grow forever.
 
-    Returns the number of backup_jobs rows deleted (cascades to events).
+    default_policy applies to any agent whose agents.agent_type is NULL or
+    isn't listed in by_agent_type. Returns the total number of backup_jobs
+    rows deleted across all policies.
     """
+    by_agent_type = by_agent_type or {}
+
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT DISTINCT agent_type FROM agents")
+        agent_types = [row['agent_type'] for row in c.fetchall()]
+
+        total = 0
+        for agent_type in agent_types:
+            policy = by_agent_type.get(agent_type, default_policy) if agent_type else default_policy
+            total += _delete_backup_jobs_for_agent_type(c, agent_type, policy)
+        conn.commit()
+        return total
+
+
+def _delete_backup_jobs_for_agent_type(cursor, agent_type, policy):
+    """Run one policy's DELETE for a single agent_type (or NULL). Returns rowcount."""
+    max_days = policy.get("max_days")
     if not max_days or max_days <= 0:
         return 0
 
     cutoff = time.time() - (max_days * 86400)
+    agent_filter = "a.agent_type = ?" if agent_type is not None else "a.agent_type IS NULL"
+    params = [agent_type] if agent_type is not None else []
 
-    with get_db_connection() as conn:
-        c = conn.cursor()
-        c.execute("""
+    if policy.get("mode") == "all":
+        cursor.execute(f"""
             DELETE FROM backup_jobs
-            WHERE completed_at IS NOT NULL AND completed_at < ?
-        """, (cutoff,))
-        conn.commit()
-        return c.rowcount
+            WHERE id IN (
+                SELECT bj.id FROM backup_jobs bj
+                JOIN agents a ON a.id = bj.agent_id
+                WHERE {agent_filter} AND bj.started_at < ?
+            )
+        """, (*params, cutoff))
+    else:
+        cursor.execute(f"""
+            DELETE FROM backup_jobs
+            WHERE id IN (
+                SELECT bj.id FROM backup_jobs bj
+                JOIN agents a ON a.id = bj.agent_id
+                WHERE {agent_filter} AND bj.status = 'purged' AND bj.updated_at < ?
+            )
+        """, (*params, cutoff))
+    return cursor.rowcount
 
 
 def mark_backup_jobs_purged(agent_id, backup_set_id):
@@ -135,8 +173,8 @@ def mark_backup_jobs_purged(agent_id, backup_set_id):
     of its own local storage/database. This does NOT delete the rows or
     their events — it only flips their status to 'purged' so the dashboard's
     history reflects that the underlying data no longer exists on the agent.
-    Actual row deletion is handled solely by the dashboard's own time-based
-    retention policy (see delete_backup_jobs_older_than above).
+    Actual row deletion is handled solely by the dashboard's own retention
+    policy (see delete_expired_backup_jobs above).
 
     A single backup_set_id can be shared by multiple backup_jobs rows (a
     full backup plus its incremental/differential children), so all of them
