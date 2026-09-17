@@ -42,6 +42,9 @@ function renderStatusBadge(status) {
   if (s === 'skipped') {
     return `<span class="badge bg-secondary">${s}</span>`;
   }
+  if (s === 'stopped') {
+    return '<span class="badge bg-warning text-dark"><i class="fas fa-pause me-1"></i>stopped</span>';
+  }
   if (s === 'running') {
     return '<span class="badge bg-info"><i class="fas fa-spinner fa-spin me-1"></i>running</span>';
   }
@@ -61,6 +64,7 @@ function renderStatusSummaryPills(statusCounts) {
     error: 'bg-danger',
     failed: 'bg-danger',
     skipped: 'bg-secondary',
+    stopped: 'bg-warning',
     running: 'bg-info',
     purged: 'bg-dark'
   };
@@ -80,6 +84,7 @@ function getStatusChartColor(status) {
     error: '#dc3545',
     failed: '#dc3545',
     skipped: '#6c757d',
+    stopped: '#ffc107',
     running: '#0dcaf0',
     purged: '#495057',
     unknown: '#adb5bd'

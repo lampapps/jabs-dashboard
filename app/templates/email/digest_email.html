@@ -25,14 +25,19 @@
             <td style="padding:24px 28px 8px 28px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td width="50%" style="text-align:center; padding:12px; background-color:#eafaf1; border-radius:6px;">
+                  <td width="33%" style="text-align:center; padding:12px; background-color:#eafaf1; border-radius:6px;">
                     <div style="font-size:24px; font-weight:700; color:#1e8449;">{{ succeeded|length }}</div>
                     <div style="font-size:12px; color:#1e8449; text-transform:uppercase; letter-spacing:0.5px;">Succeeded</div>
                   </td>
                   <td width="12"></td>
-                  <td width="50%" style="text-align:center; padding:12px; background-color:{{ '#fdedec' if failed else '#f4f5f7' }}; border-radius:6px;">
+                  <td width="33%" style="text-align:center; padding:12px; background-color:{{ '#fdedec' if failed else '#f4f5f7' }}; border-radius:6px;">
                     <div style="font-size:24px; font-weight:700; color:{{ '#c0392b' if failed else '#7f8c8d' }};">{{ failed|length }}</div>
                     <div style="font-size:12px; color:{{ '#c0392b' if failed else '#7f8c8d' }}; text-transform:uppercase; letter-spacing:0.5px;">Failed</div>
+                  </td>
+                  <td width="12"></td>
+                  <td width="33%" style="text-align:center; padding:12px; background-color:{{ '#fef9e7' if stopped else '#f4f5f7' }}; border-radius:6px;">
+                    <div style="font-size:24px; font-weight:700; color:{{ '#b7950b' if stopped else '#7f8c8d' }};">{{ stopped|length }}</div>
+                    <div style="font-size:12px; color:{{ '#b7950b' if stopped else '#7f8c8d' }}; text-transform:uppercase; letter-spacing:0.5px;">Stopped</div>
                   </td>
                 </tr>
               </table>
@@ -109,6 +114,44 @@
                   <td style="padding:8px 4px; vertical-align:top;">{{ job.backup_type }}</td>
                   <td style="padding:8px 4px; vertical-align:top; white-space:nowrap;">{{ job.completed_at_fmt }}</td>
                   <td style="padding:8px 4px; vertical-align:top;">{{ job.bytes_processed_fmt }}</td>
+                </tr>
+                {% endfor %}
+              </table>
+            </td>
+          </tr>
+          {% endfor %}
+          {% endif %}
+
+          {% if stopped %}
+          <!-- Stopped jobs -->
+          <tr>
+            <td style="padding:20px 28px 4px 28px;">
+              <div style="font-size:14px; font-weight:600; color:#b7950b; border-bottom:2px solid #fef9e7; padding-bottom:6px;">
+                Stopped Backups (resume next run)
+              </div>
+            </td>
+          </tr>
+          {% for host_group in stopped_by_host %}
+          <tr>
+            <td style="padding:12px 28px 0 28px;">
+              <div style="font-size:12px; font-weight:600; color:#333333; text-transform:uppercase; letter-spacing:0.3px;">
+                {{ host_group.hostname }}
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:4px 28px 0 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px; color:#333333;">
+                <tr style="color:#7f8c8d; text-transform:uppercase; font-size:11px;">
+                  <td style="padding:6px 4px;">Job</td>
+                  <td style="padding:6px 4px;">Stopped At</td>
+                  <td style="padding:6px 4px;">Message</td>
+                </tr>
+                {% for job in host_group.jobs %}
+                <tr style="border-top:1px solid #f0f0f0;">
+                  <td style="padding:8px 4px; vertical-align:top;">{{ job.job_name }}</td>
+                  <td style="padding:8px 4px; vertical-align:top; white-space:nowrap;">{{ job.completed_at_fmt }}</td>
+                  <td style="padding:8px 4px; vertical-align:top; color:#b7950b;">{{ job.error_message or '-' }}</td>
                 </tr>
                 {% endfor %}
               </table>

@@ -68,7 +68,7 @@ The primary endpoint. Used for three purposes, distinguished by `event_type`:
 | `backup_type` | string | no | e.g. `"full"`, `"incremental"`, `"differential"`. If a later event for the same job upgrades to `"full"`, the dashboard updates the stored type (never downgrades). |
 | `source` | string | no | Source path/description being backed up (only used at job creation). |
 | `destination` | string | no | Destination path/description (only used at job creation). |
-| `status` | string | no | For completion events: `"success"` or `"failed"`. Defaults based on `event_type` if omitted. |
+| `status` | string | no | For completion events: `"success"`, `"failed"`, or `"stopped"`. Defaults based on `event_type` if omitted. Send `event_type="backup_complete"` with `status="stopped"` when a job is deliberately cut short (e.g. a deadline/timeout) but is expected to resume on a future run — this finalizes the job (sets `completed_at`, stops the dashboard's "running" spinner, and includes it in the next digest email) without marking it as an error. |
 | `duration_seconds` | number | no | Total job runtime — stored as `runtime_seconds` (completion events). |
 | `files_backed_up` | integer | no | File count processed — stored as `files_count` (completion events). |
 | `bytes_backed_up` | integer | no | Total bytes processed (uncompressed) — stored as `bytes_processed` (completion events). |

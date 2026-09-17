@@ -136,6 +136,7 @@ def send_digest_email():
 
     succeeded = [j for j in jobs if j.get("status") in ("completed", "success", "skipped")]
     failed = [j for j in jobs if j.get("status") in ("error", "failed")]
+    stopped = [j for j in jobs if j.get("status") == "stopped"]
 
     for job in jobs:
         job["bytes_processed_fmt"] = sizeof_fmt(job.get("bytes_processed") or 0)
@@ -152,11 +153,13 @@ def send_digest_email():
         jobs=jobs,
         succeeded=succeeded,
         failed=failed,
+        stopped=stopped,
         succeeded_by_host=_group_by_host(succeeded),
         failed_by_host=_group_by_host(failed),
+        stopped_by_host=_group_by_host(stopped),
     )
 
-    subject = f"JABS Daily Digest ({datetime.now().strftime('%Y-%m-%d')}) — {len(succeeded)} OK, {len(failed)} failed"
+    subject = f"JABS Daily Digest ({datetime.now().strftime('%Y-%m-%d')}) — {len(succeeded)} OK, {len(failed)} failed, {len(stopped)} stopped"
     sent = _send_email(subject, html_body, html=True)
     if sent:
         _save_last_sent(now)
