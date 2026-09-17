@@ -117,8 +117,11 @@ def delete_expired_backup_jobs(default_policy, by_agent_type=None):
       nas_sync_agent), so their history doesn't grow forever.
 
     default_policy applies to any agent whose agents.agent_type is NULL or
-    isn't listed in by_agent_type. Returns the total number of backup_jobs
-    rows deleted across all policies.
+    isn't listed in by_agent_type. Returns a list of per-agent-type result
+    dicts: {"agent_type": str|None, "policy": dict, "deleted_jobs": [...]}
+    where deleted_jobs holds {"id", "hostname", "job_name", "status",
+    "backup_set_id"} for every row actually deleted, so the caller can log
+    exactly what was removed.
     """
     by_agent_type = by_agent_type or {}
 
@@ -127,43 +130,50 @@ def delete_expired_backup_jobs(default_policy, by_agent_type=None):
         c.execute("SELECT DISTINCT agent_type FROM agents")
         agent_types = [row['agent_type'] for row in c.fetchall()]
 
-        total = 0
+        results = []
         for agent_type in agent_types:
             policy = by_agent_type.get(agent_type, default_policy) if agent_type else default_policy
-            total += _delete_backup_jobs_for_agent_type(c, agent_type, policy)
+            deleted_jobs = _delete_backup_jobs_for_agent_type(c, agent_type, policy)
+            results.append({"agent_type": agent_type, "policy": policy, "deleted_jobs": deleted_jobs})
         conn.commit()
-        return total
+        return results
 
 
 def _delete_backup_jobs_for_agent_type(cursor, agent_type, policy):
-    """Run one policy's DELETE for a single agent_type (or NULL). Returns rowcount."""
+    """Run one policy's DELETE for a single agent_type (or NULL).
+
+    Returns a list of {"id", "hostname", "job_name", "status",
+    "backup_set_id"} dicts for every row deleted.
+    """
     max_days = policy.get("max_days")
     if not max_days or max_days <= 0:
-        return 0
+        return []
 
     cutoff = time.time() - (max_days * 86400)
     agent_filter = "a.agent_type = ?" if agent_type is not None else "a.agent_type IS NULL"
     params = [agent_type] if agent_type is not None else []
 
     if policy.get("mode") == "all":
-        cursor.execute(f"""
-            DELETE FROM backup_jobs
-            WHERE id IN (
-                SELECT bj.id FROM backup_jobs bj
-                JOIN agents a ON a.id = bj.agent_id
-                WHERE {agent_filter} AND bj.started_at < ?
-            )
-        """, (*params, cutoff))
+        status_filter = ""
+        age_column = "bj.started_at"
     else:
-        cursor.execute(f"""
-            DELETE FROM backup_jobs
-            WHERE id IN (
-                SELECT bj.id FROM backup_jobs bj
-                JOIN agents a ON a.id = bj.agent_id
-                WHERE {agent_filter} AND bj.status = 'purged' AND bj.updated_at < ?
-            )
-        """, (*params, cutoff))
-    return cursor.rowcount
+        status_filter = "AND bj.status = 'purged'"
+        age_column = "bj.updated_at"
+
+    cursor.execute(f"""
+        SELECT bj.id, a.hostname, bj.job_name, bj.status, bj.backup_set_id
+        FROM backup_jobs bj
+        JOIN agents a ON a.id = bj.agent_id
+        WHERE {agent_filter} {status_filter} AND {age_column} < ?
+    """, (*params, cutoff))
+    matched = [dict(row) for row in cursor.fetchall()]
+    if not matched:
+        return []
+
+    ids = [row['id'] for row in matched]
+    placeholders = ", ".join(["?"] * len(ids))
+    cursor.execute(f"DELETE FROM backup_jobs WHERE id IN ({placeholders})", ids)
+    return matched
 
 
 def mark_backup_jobs_purged(agent_id, backup_set_id):
