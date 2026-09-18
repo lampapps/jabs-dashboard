@@ -64,7 +64,7 @@ function renderStatusSummaryPills(statusCounts) {
     error: 'bg-danger',
     failed: 'bg-danger',
     skipped: 'bg-secondary',
-    stopped: 'bg-warning',
+    stopped: 'bg-warning text-dark',
     running: 'bg-info',
     purged: 'bg-dark'
   };
@@ -84,7 +84,7 @@ function getStatusChartColor(status) {
     error: '#dc3545',
     failed: '#dc3545',
     skipped: '#6c757d',
-    stopped: '#ffc107',
+    stopped: '#b88c09',
     running: '#0dcaf0',
     purged: '#495057',
     unknown: '#adb5bd'
