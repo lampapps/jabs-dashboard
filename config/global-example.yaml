@@ -25,14 +25,6 @@ s3_buckets:
 # - bucket: "company-archive"           # Example: Long-term archive bucket
 #   label: "Archive"
 
-# --- Restic Browser Configuration ---
-# Absolute path to a locally installed Restic Browser AppImage/executable
-# (https://github.com/emuell/restic-browser), used by the "Launch Restic
-# Browser" button. The dashboard can only launch it on the machine it's
-# running on, so this only makes sense if you always view the dashboard from
-# that same machine. Leave unset/commented to hide the button.
-# restic_browser_path: "/path/to/snapshot_agent/restic-browser/Restic-Browser.AppImage"
-
 # --- Email Notification Configuration ---
 # Configure SMTP email notifications for backup events
 # Requires JABS_SMTP_USER and JABS_SMTP_PASS environment variables in .env file

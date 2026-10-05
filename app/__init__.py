@@ -4,7 +4,7 @@ import os
 import secrets
 from datetime import datetime
 from flask import Flask, render_template, send_from_directory
-from app.settings import TEMPLATE_DIR, STATIC_DIR, VERSION, ENV_MODE, RESTIC_BROWSER_PATH
+from app.settings import TEMPLATE_DIR, STATIC_DIR, VERSION, ENV_MODE
 from app.routes import register_blueprints
 
 def create_app():
@@ -34,10 +34,6 @@ def create_app():
         # Default for templates that don't explicitly pass env_mode (e.g. the
         # dev-mode banner), so it renders consistently on every page.
         return {"env_mode": ENV_MODE}
-
-    @app.context_processor
-    def inject_restic_browser():
-        return {"restic_browser_available": bool(RESTIC_BROWSER_PATH)}
 
     @app.route('/favicon.ico')
     def favicon():

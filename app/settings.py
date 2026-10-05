@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 
 
-VERSION = "0.13.0"
+VERSION = "0.13.1"
 
 # --- Environment Configuration ---
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -48,10 +48,6 @@ with open(GLOBAL_CONFIG_PATH, "r", encoding="utf-8") as f:
 
 EMAIL_CONFIG = GLOBAL_CONFIG.get("email", {})
 
-# --- Restic Browser Configuration ---
-# Absolute path to a locally installed Restic Browser AppImage/executable.
-# None hides the "Launch Restic Browser" button entirely.
-RESTIC_BROWSER_PATH = GLOBAL_CONFIG.get("restic_browser_path") or None
 
 # --- Retention Configuration ---
 # Global deletion policy applied on the dashboard (see

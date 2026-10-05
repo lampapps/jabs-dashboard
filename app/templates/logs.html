@@ -91,7 +91,7 @@
             <a id="log-{{ name|replace('.', '-') }}"></a>
             <div class="card" style="min-height: 500px;">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <span class="fw-bold"><i class="fa-solid fa-file-lines"></i> {{ name }}</span>
+                    <span class="fw-bold"><i class="fas fa-file-alt"></i> {{ name }}</span>
                     <button class="btn btn-outline-danger btn-sm" onclick="purgeLog('{{ name }}')">
                         <i class="fa fa-trash"></i> Purge
                     </button>
@@ -138,10 +138,10 @@
                                 <input type="search" class="form-control form-control-sm log-search-input" style="width: 200px;"
                                        data-log-id="{{ name|replace('.', '-') }}" placeholder="Search...">
                                 <button type="button" class="btn btn-outline-secondary btn-sm log-search-prev" data-log-id="{{ name|replace('.', '-') }}" title="Previous match">
-                                    <i class="fa-solid fa-chevron-up"></i>
+                                    <i class="fas fa-chevron-up"></i>
                                 </button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm log-search-next" data-log-id="{{ name|replace('.', '-') }}" title="Next match">
-                                    <i class="fa-solid fa-chevron-down"></i>
+                                    <i class="fas fa-chevron-down"></i>
                                 </button>
                                 <span class="text-muted small log-search-count" data-log-id="{{ name|replace('.', '-') }}"></span>
                             </div>
@@ -153,10 +153,10 @@
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-outline-secondary btn-sm log-copy-btn" data-log-id="{{ name|replace('.', '-') }}">
-                                <i class="fa-regular fa-copy"></i> Copy
+                                <i class="far fa-copy"></i> Copy
                             </button>
                             <button type="button" class="btn btn-outline-secondary btn-sm log-wrap-toggle" data-log-id="{{ name|replace('.', '-') }}">
-                                <i class="fa-solid fa-arrows-left-right"></i> Wrap
+                                <i class="fas fa-exchange-alt"></i> Wrap
                             </button>
                         </div>
                     </div>

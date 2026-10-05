@@ -53,20 +53,6 @@ function renderStatusBadge(status) {
 }
 // --- End Shared Status Badge Renderer ---
 
-// --- Launch Restic Browser (runs on the dashboard server; localhost-only) ---
-function launchResticBrowser() {
-  fetch('/tools/launch-restic-browser', { method: 'POST' })
-    .then(response => response.json())
-    .then(data => {
-      if (!data.success) {
-        alert('Failed to launch Restic Browser: ' + (data.error || 'Unknown error'));
-      }
-    })
-    .catch(() => {
-      alert('An error occurred while launching Restic Browser.');
-    });
-}
-// --- End Launch Restic Browser ---
 
 // --- Shared Status Summary Pills Renderer (e.g. {"success": 2, "error": 1}) ---
 function renderStatusSummaryPills(statusCounts) {
