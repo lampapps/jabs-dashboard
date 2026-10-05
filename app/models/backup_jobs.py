@@ -4,21 +4,26 @@ import time
 from app.models.db_core import get_db_connection
 
 
-def create_backup_job(agent_id, job_name, backup_type, backup_set_id, backup_set_name,
-                      source="", destination="", run_id=None):
-    """Create a new backup job record. Returns backup_job id."""
+def create_backup_job(agent_id, job_name, backup_type, target_id, target_label,
+                      source="", destination="", run_id=None, job_run_id=None):
+    """Create a new backup job record. Returns backup_job id.
+
+    job_run_id, when provided, is a UUID shared by every target/pair under
+    one overall agent-script invocation (distinct from the per-target
+    run_id), used to group multi-pair job runs for First/Last/Next Event.
+    """
     with get_db_connection() as conn:
         c = conn.cursor()
         now = time.time()
         c.execute("""
             INSERT INTO backup_jobs
-            (agent_id, job_name, backup_type, run_id, backup_set_id, backup_set_name,
-             source, destination, started_at, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (agent_id, job_name, backup_type, run_id, target_id, target_label,
+             source, destination, started_at, status, job_run_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            agent_id, job_name, backup_type, run_id, backup_set_id, backup_set_name,
+            agent_id, job_name, backup_type, run_id, target_id, target_label,
             source, destination,
-            now, 'running', now, now
+            now, 'running', job_run_id, now, now
         ))
         conn.commit()
         return c.lastrowid
@@ -37,21 +42,72 @@ def get_backup_job_by_run_id(run_id):
 
 def finalize_backup_job(backup_job_id, status, runtime_seconds=None, files_count=None,
                        bytes_processed=None, bytes_compressed=None,
-                       error_code=None, error_message=None):
-    """Finalize a backup job with completion results. Returns True if successful."""
+                       error_code=None, error_message=None, external_id=None):
+    """Finalize a backup job with completion results. Returns True if successful.
+
+    external_id, when provided, is an agent-chosen opaque identifier for the
+    underlying artifact this run produced (e.g. a restic snapshot ID, or an
+    image filename) — stored so a later purge report can match it via
+    mark_backup_jobs_purged().
+    """
     with get_db_connection() as conn:
         c = conn.cursor()
         now = time.time()
+        # Success always reaches 100%; failures/stopped keep their last-known
+        # percent so the UI can show e.g. "failed at 63%" instead of blanking it.
+        percent_complete = 100 if status == 'success' else None
         c.execute("""
             UPDATE backup_jobs
             SET status = ?, completed_at = ?, runtime_seconds = ?, files_count = ?,
                 bytes_processed = ?, bytes_compressed = ?, error_code = ?, error_message = ?,
+                external_id = COALESCE(?, external_id),
+                percent_complete = COALESCE(?, percent_complete),
+                bytes_per_second = NULL, eta_seconds = NULL, current_item = NULL,
                 updated_at = ?
             WHERE id = ?
         """, (
             status, now, runtime_seconds, files_count, bytes_processed, bytes_compressed,
-            error_code, error_message, now, backup_job_id
+            error_code, error_message, external_id, percent_complete, now, backup_job_id
         ))
+        conn.commit()
+        return c.rowcount > 0
+
+
+def update_backup_job_progress(backup_job_id, percent_complete=None, bytes_per_second=None,
+                              eta_seconds=None, current_item=None, files_count=None,
+                              bytes_processed=None):
+    """Apply a non-finalizing progress update from a running job.
+
+    Only columns passed as non-None are updated, so an agent can report any
+    subset of fields (e.g. restic has no computed rate, dd has no percent).
+    Never touches status/completed_at — only finalize_backup_job() does that.
+    """
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        now = time.time()
+
+        updates = ["updated_at = ?", "progress_updated_at = ?"]
+        params = [now, now]
+
+        fields = {
+            'percent_complete': percent_complete,
+            'bytes_per_second': bytes_per_second,
+            'eta_seconds': eta_seconds,
+            'current_item': current_item,
+            'files_count': files_count,
+            'bytes_processed': bytes_processed,
+        }
+        for key, value in fields.items():
+            if value is not None:
+                updates.append(f"{key} = ?")
+                params.append(value)
+
+        if len(updates) == 2:
+            return False  # nothing to update besides timestamps
+
+        params.append(backup_job_id)
+        query = f"UPDATE backup_jobs SET {', '.join(updates)} WHERE id = ?"
+        c.execute(query, params)
         conn.commit()
         return c.rowcount > 0
 
@@ -103,109 +159,74 @@ def list_completed_jobs_since(since_ts):
         return [dict(row) for row in c.fetchall()]
 
 
-def delete_expired_backup_jobs(default_policy, by_agent_type=None):
-    """Delete backup_jobs rows (and cascaded events) per an agent-type-aware
-    retention policy.
-
-    Each policy is a dict: {"max_days": int, "mode": "purged_only" | "all"}.
-    - mode "purged_only": only rows with status='purged' are eligible,
-      measured from updated_at (when marked purged). Use for agents that
-      explicitly report purged sets (e.g. file_backup_agent) -- all other
-      rows are kept indefinitely.
-    - mode "all": any row is eligible regardless of status, measured from
-      started_at. Use for agents that never mark rows as purged (e.g.
-      nas_sync_agent), so their history doesn't grow forever.
-
-    default_policy applies to any agent whose agents.agent_type is NULL or
-    isn't listed in by_agent_type. Returns a list of per-agent-type result
-    dicts: {"agent_type": str|None, "policy": dict, "deleted_jobs": [...]}
-    where deleted_jobs holds {"id", "hostname", "job_name", "status",
-    "backup_set_id"} for every row actually deleted, so the caller can log
-    exactly what was removed.
-    """
-    by_agent_type = by_agent_type or {}
-
-    with get_db_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT DISTINCT agent_type FROM agents")
-        agent_types = [row['agent_type'] for row in c.fetchall()]
-
-        results = []
-        for agent_type in agent_types:
-            policy = by_agent_type.get(agent_type, default_policy) if agent_type else default_policy
-            deleted_jobs = _delete_backup_jobs_for_agent_type(c, agent_type, policy)
-            results.append({"agent_type": agent_type, "policy": policy, "deleted_jobs": deleted_jobs})
-        conn.commit()
-        return results
-
-
-def _delete_backup_jobs_for_agent_type(cursor, agent_type, policy):
-    """Run one policy's DELETE for a single agent_type (or NULL).
+def delete_expired_backup_jobs(max_days):
+    """Delete backup_jobs rows (and cascaded events) older than max_days,
+    measured from started_at, regardless of agent_type or status.
 
     Returns a list of {"id", "hostname", "job_name", "status",
-    "backup_set_id"} dicts for every row deleted.
+    "target_id"} dicts for every row actually deleted, so the caller can
+    log exactly what was removed.
     """
-    max_days = policy.get("max_days")
     if not max_days or max_days <= 0:
         return []
 
     cutoff = time.time() - (max_days * 86400)
-    agent_filter = "a.agent_type = ?" if agent_type is not None else "a.agent_type IS NULL"
-    params = [agent_type] if agent_type is not None else []
 
-    if policy.get("mode") == "all":
-        status_filter = ""
-        age_column = "bj.started_at"
-    else:
-        status_filter = "AND bj.status = 'purged'"
-        age_column = "bj.updated_at"
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT bj.id, a.hostname, bj.job_name, bj.status, bj.target_id
+            FROM backup_jobs bj
+            JOIN agents a ON a.id = bj.agent_id
+            WHERE bj.started_at < ?
+        """, (cutoff,))
+        matched = [dict(row) for row in c.fetchall()]
+        if not matched:
+            return []
 
-    cursor.execute(f"""
-        SELECT bj.id, a.hostname, bj.job_name, bj.status, bj.backup_set_id
-        FROM backup_jobs bj
-        JOIN agents a ON a.id = bj.agent_id
-        WHERE {agent_filter} {status_filter} AND {age_column} < ?
-    """, (*params, cutoff))
-    matched = [dict(row) for row in cursor.fetchall()]
-    if not matched:
-        return []
-
-    ids = [row['id'] for row in matched]
-    placeholders = ", ".join(["?"] * len(ids))
-    cursor.execute(f"DELETE FROM backup_jobs WHERE id IN ({placeholders})", ids)
-    return matched
+        ids = [row['id'] for row in matched]
+        placeholders = ", ".join(["?"] * len(ids))
+        c.execute(f"DELETE FROM backup_jobs WHERE id IN ({placeholders})", ids)
+        conn.commit()
+        return matched
 
 
-def mark_backup_jobs_purged(agent_id, backup_set_id):
-    """Mark every backup_jobs row for agent_id+backup_set_id as 'purged'.
+def mark_backup_jobs_purged(agent_id, target_id, external_ids):
+    """Mark backup_jobs rows for agent_id+target_id whose external_id is in
+    external_ids as 'purged'.
 
-    Called when an agent (e.g. file_backup_agent) rotates a backup set out
-    of its own local storage/database. This does NOT delete the rows or
-    their events — it only flips their status to 'purged' so the dashboard's
-    history reflects that the underlying data no longer exists on the agent.
-    Actual row deletion is handled solely by the dashboard's own retention
-    policy (see delete_expired_backup_jobs above).
+    Called when an agent deletes specific rotated-out artifacts (e.g. a
+    pruned restic snapshot, a deleted dated image file) belonging to a
+    target_id it still otherwise keeps running. This does NOT delete the
+    rows or their events — it only flips their status to 'purged' so the
+    dashboard's history reflects that the underlying data no longer exists
+    on the agent. Actual row deletion is handled solely by the dashboard's
+    own retention policy (see delete_expired_backup_jobs above).
 
-    A single backup_set_id can be shared by multiple backup_jobs rows (a
-    full backup plus its incremental/differential children), so all of them
-    are updated together.
+    external_ids is a required, non-empty list — only rows whose stored
+    external_id (set via finalize_backup_job) matches one of these values
+    are marked, so unrelated runs sharing the same target_id are untouched.
 
     Returns the list of backup_job ids that were updated.
     """
+    if not external_ids:
+        return []
+
     with get_db_connection() as conn:
         c = conn.cursor()
+        placeholders = ", ".join(["?"] * len(external_ids))
         c.execute(
-            "SELECT id FROM backup_jobs WHERE agent_id = ? AND backup_set_id = ?",
-            (agent_id, backup_set_id)
+            f"SELECT id FROM backup_jobs WHERE agent_id = ? AND target_id = ? AND external_id IN ({placeholders})",
+            (agent_id, target_id, *external_ids)
         )
         job_ids = [row['id'] for row in c.fetchall()]
         if not job_ids:
             return []
 
         now = time.time()
-        placeholders = ", ".join(["?"] * len(job_ids))
+        job_placeholders = ", ".join(["?"] * len(job_ids))
         c.execute(
-            f"UPDATE backup_jobs SET status = 'purged', updated_at = ? WHERE id IN ({placeholders})",
+            f"UPDATE backup_jobs SET status = 'purged', updated_at = ? WHERE id IN ({job_placeholders})",
             (now, *job_ids)
         )
         conn.commit()

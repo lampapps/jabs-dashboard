@@ -66,12 +66,14 @@
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px; color:#333333;">
                 <tr style="color:#7f8c8d; text-transform:uppercase; font-size:11px;">
                   <td style="padding:6px 4px;">Job</td>
+                  <td style="padding:6px 4px;">Target</td>
                   <td style="padding:6px 4px;">Completed</td>
                   <td style="padding:6px 4px;">Error</td>
                 </tr>
                 {% for job in host_group.jobs %}
                 <tr style="border-top:1px solid #f0f0f0;">
                   <td style="padding:8px 4px; vertical-align:top;">{{ job.job_name }}</td>
+                  <td style="padding:8px 4px; vertical-align:top;">{{ job.target_label or job.target_id or '-' }}</td>
                   <td style="padding:8px 4px; vertical-align:top; white-space:nowrap;">{{ job.completed_at_fmt }}</td>
                   <td style="padding:8px 4px; vertical-align:top; color:#c0392b;">{{ job.error_message or '-' }}</td>
                 </tr>
@@ -104,6 +106,7 @@
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px; color:#333333;">
                 <tr style="color:#7f8c8d; text-transform:uppercase; font-size:11px;">
                   <td style="padding:6px 4px;">Job</td>
+                  <td style="padding:6px 4px;">Target</td>
                   <td style="padding:6px 4px;">Type</td>
                   <td style="padding:6px 4px;">Completed</td>
                   <td style="padding:6px 4px;">Size</td>
@@ -111,6 +114,7 @@
                 {% for job in host_group.jobs %}
                 <tr style="border-top:1px solid #f0f0f0;">
                   <td style="padding:8px 4px; vertical-align:top;">{{ job.job_name }}</td>
+                  <td style="padding:8px 4px; vertical-align:top;">{{ job.target_label or job.target_id or '-' }}</td>
                   <td style="padding:8px 4px; vertical-align:top;">{{ job.backup_type }}</td>
                   <td style="padding:8px 4px; vertical-align:top; white-space:nowrap;">{{ job.completed_at_fmt }}</td>
                   <td style="padding:8px 4px; vertical-align:top;">{{ job.bytes_processed_fmt }}</td>
@@ -144,12 +148,14 @@
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px; color:#333333;">
                 <tr style="color:#7f8c8d; text-transform:uppercase; font-size:11px;">
                   <td style="padding:6px 4px;">Job</td>
+                  <td style="padding:6px 4px;">Target</td>
                   <td style="padding:6px 4px;">Stopped At</td>
                   <td style="padding:6px 4px;">Message</td>
                 </tr>
                 {% for job in host_group.jobs %}
                 <tr style="border-top:1px solid #f0f0f0;">
                   <td style="padding:8px 4px; vertical-align:top;">{{ job.job_name }}</td>
+                  <td style="padding:8px 4px; vertical-align:top;">{{ job.target_label or job.target_id or '-' }}</td>
                   <td style="padding:8px 4px; vertical-align:top; white-space:nowrap;">{{ job.completed_at_fmt }}</td>
                   <td style="padding:8px 4px; vertical-align:top; color:#b7950b;">{{ job.error_message or '-' }}</td>
                 </tr>

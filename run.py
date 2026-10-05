@@ -136,7 +136,7 @@ if __name__ == "__main__":
         print("="*60 + "\n")
 
         try:
-            app.run(host="0.0.0.0", port=port, debug=True)
+            app.run(host="0.0.0.0", port=port, debug=(env_mode == "development"))
         except OSError as e:
             if hasattr(e, 'errno') and e.errno == 98:
                 print(f"ERROR: Server is already running on port {port}.")

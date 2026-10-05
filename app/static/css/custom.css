@@ -135,3 +135,62 @@ thead th, tfoot th {
   scroll-margin-top: 20px; 
 }
 
+/* Custom Warning color  to match charts */
+/* Explicit light theme, and default fallback */
+:root,
+[data-bs-theme="light"] {
+  --bs-warning: #b88c09;
+  --bs-warning-rgb: 184, 140, 9;
+  --bs-warning-text-emphasis: #6f5406;
+  --bs-warning-bg-subtle: #f7ecd1;
+  --bs-warning-border-subtle: #eed9a3;
+}
+
+/* Explicit dark theme */
+[data-bs-theme="dark"] {
+  --bs-warning: #b88c09;
+  --bs-warning-rgb: 184, 140, 9;
+  --bs-warning-text-emphasis: #f0d896;
+  --bs-warning-bg-subtle: #3d2f06;
+  --bs-warning-border-subtle: #6f5406;
+}
+
+/* "Auto" mode: no data-bs-theme attribute set, so respect OS dark preference */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-bs-theme="light"]):not([data-bs-theme="dark"]) {
+    --bs-warning: #b88c09;
+    --bs-warning-rgb: 184, 140, 9;
+    --bs-warning-text-emphasis: #f0d896;
+    --bs-warning-bg-subtle: #3d2f06;
+    --bs-warning-border-subtle: #6f5406;
+  }
+}
+
+/* Log model viewer */
+.log-viewer .lvl-error    { color: #ff6b6b; font-weight: bold; }
+.log-viewer .lvl-warn     { color: #ffd166; font-weight: bold; }
+.log-viewer .lvl-info     { color: #4dabf7; }
+.log-viewer .lvl-debug    { color: #adb5bd; }
+.log-viewer .lvl-ok       { color: #51cf66; font-weight: bold; }
+.log-viewer .log-ts       { color: #63e6be; }
+.log-viewer .log-ip       { color: #da77f2; }
+.log-viewer .log-path     { color: #74c0fc; }
+.log-viewer .http-method  { color: #ffa94d; font-weight: bold; }
+.log-viewer .status-2xx   { color: #51cf66; font-weight: bold; }
+.log-viewer .status-3xx   { color: #63e6be; }
+.log-viewer .status-4xx   { color: #ffd166; font-weight: bold; }
+.log-viewer .status-5xx   { color: #ff6b6b; font-weight: bold; }
+.log-viewer mark           { background: #ffe066; color: #000; border-radius: 2px; }
+.log-viewer mark.log-search-current { background: #ff922b; }
+.log-viewer.log-nowrap     { white-space: pre !important; overflow-x: auto; }
+
+/* Log filter badges — colors match the .log-viewer span colors above */
+.badge-lines      { background-color: #606366; color: #e9ecef; }
+.badge-lvl-info   { background-color: #4dabf7; color: #04233d; }
+.badge-lvl-warn   { background-color: #ffd166; color: #4d3800; }
+.badge-lvl-debug  { background-color: #adb5bd; color: #1a1d20; }
+.badge-lvl-error  { background-color: #ff6b6b; color: #3d0a0a; }
+.badge-status-2xx { background-color: #51cf66; color: #0b3d16; }
+.badge-status-3xx { background-color: #63e6be; color: #073d2e; }
+.badge-status-4xx { background-color: #ffd166; color: #4d3800; }
+.badge-status-5xx { background-color: #ff6b6b; color: #3d0a0a; }

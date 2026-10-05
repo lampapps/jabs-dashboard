@@ -13,9 +13,10 @@ from datetime import datetime, timedelta, timezone
 import yaml
 import boto3
 from botocore.config import Config as BotoCoreConfig
+from croniter import croniter
 
 from flask import (
-    Blueprint, jsonify, request, flash, url_for, current_app
+    Blueprint, jsonify, request, current_app
 )
 
 from app.settings import (
@@ -23,200 +24,170 @@ from app.settings import (
 )
 from app.utils.logger import sizeof_fmt
 from app.models.db_core import get_db_connection
+from app.models.job_schedules import get_all_job_schedules
 
 api_bp = Blueprint('api', __name__)
 
-@api_bp.route("/api/events")
-def get_events():
-    """Return backup jobs with their latest event from normalized schema."""
-    try:
-        with get_db_connection() as conn:
-            c = conn.cursor()
-            c.execute("""
-                SELECT
-                    bj.id,
-                    bj.backup_set_id,
-                    a.agent_type,
-                    bj.backup_set_name,
-                    a.hostname,
-                    bj.job_name,
-                    bj.backup_type,
-                    bj.status,
-                    bj.started_at,
-                    bj.completed_at,
-                    bj.runtime_seconds,
-                    latest_e.event_type as latest_event_type,
-                    latest_e.message as latest_event_message
-                FROM backup_jobs bj
-                JOIN agents a ON bj.agent_id = a.id
-                LEFT JOIN events latest_e ON latest_e.id = (
-                    SELECT id FROM events WHERE backup_job_id = bj.id
-                    ORDER BY timestamp DESC, id DESC LIMIT 1
-                )
-                ORDER BY bj.started_at DESC
-            """)
+# How far a job's last actual run may drift from its nearest predicted cron
+# occurrence before "Next Event" is flagged as possibly stale/wrong (e.g. a
+# nas_sync/dns_backup JOB_CRON config value that no longer matches the real
+# crontab entry).
+SCHEDULE_DRIFT_TOLERANCE = timedelta(minutes=5)
 
-            rows = c.fetchall()
-            transformed = []
 
-            for row in rows:
-                backup_type = (row['backup_type'] or '').lower()
+def _next_event_for_schedule(cron_schedule, last_activity):
+    """Return (next_event_dt, drifted) for a comma-separated cron_schedule.
 
-                # Format backup type for display
-                if backup_type == 'dryrun':
-                    backup_type_display = 'Dry Run'
-                elif backup_type == 'differential':
-                    backup_type_display = 'Differential'
-                else:
-                    backup_type_display = backup_type.capitalize() if backup_type else ''
+    next_event_dt is the soonest upcoming run across all valid cron
+    expressions (None if cron_schedule is empty/entirely invalid). drifted
+    is True if the job's last_activity doesn't fall near any expression's
+    predicted occurrence, suggesting the reported schedule is stale/wrong.
+    """
+    if not cron_schedule:
+        return None, False
 
-                # Determine status from job status or latest event type.
-                # Trust the job's own (finalized) status once it's no longer
-                # "running" — only use the latest event as a fallback while
-                # the job is still in progress, so terminal statuses like
-                # "skipped" aren't clobbered by a generic "backup_complete"
-                # event type.
-                status_display = row['status'] or 'running'
-                if status_display == 'running':
-                    if row['latest_event_type'] == 'error':
-                        status_display = 'error'
-                    elif row['latest_event_type'] in ('backup_complete',):
-                        status_display = 'completed'
+    now = datetime.now()
+    next_runs = []
+    for expr in cron_schedule.split(','):
+        expr = expr.strip()
+        if not expr:
+            continue
+        try:
+            next_runs.append(croniter(expr, now).get_next(datetime))
+        except (ValueError, KeyError):
+            continue
 
-                # Show spinner while running, formatted duration when we have
-                # one, otherwise a dash for terminal states with no duration
-                # (e.g. skipped backups).
-                runtime_str = ''
-                if status_display == 'running':
-                    runtime_str = '<i class="fas fa-spinner fa-spin"></i>'
-                elif row['runtime_seconds']:
-                    try:
-                        duration = float(row['runtime_seconds'])
-                        hours = int(duration // 3600)
-                        minutes = int((duration % 3600) // 60)
-                        seconds = int(duration % 60)
-                        if hours > 0:
-                            runtime_str = f"{hours}h {minutes}m {seconds}s"
-                        elif minutes > 0:
-                            runtime_str = f"{minutes}m {seconds}s"
-                        else:
-                            runtime_str = f"{seconds}s"
-                    except:
-                        runtime_str = '-'
-                else:
-                    runtime_str = '-'
+    if not next_runs:
+        return None, False
 
-                # Format event message
-                event_text = row['latest_event_message'] or ''
+    next_event_dt = min(next_runs)
 
-                # Format start time
-                start_time_str = datetime.fromtimestamp(row['started_at']).strftime('%Y-%m-%d %H:%M:%S') if row['started_at'] else ''
+    drifted = False
+    if last_activity:
+        last_activity_dt = datetime.fromtimestamp(last_activity)
+        for expr in cron_schedule.split(','):
+            expr = expr.strip()
+            if not expr:
+                continue
+            try:
+                nearest_prev = croniter(expr, last_activity_dt).get_prev(datetime)
+            except (ValueError, KeyError):
+                continue
+            if abs(last_activity_dt - nearest_prev) <= SCHEDULE_DRIFT_TOLERANCE:
+                break
+        else:
+            drifted = True
 
-                transformed_event = {
-                    'id': row['id'],
-                    'starttimestamp': start_time_str,
-                    'host': row['hostname'] or '',
-                    'job_name': row['job_name'] or '',
-                    'backup_type': backup_type,
-                    'event': event_text,
-                    'backup_set_name': row['backup_set_name'] or '',
-                    'runtime': runtime_str,
-                    'status': status_display,
-                    'set_name': row['backup_set_id'] or ''
-                }
-                transformed.append(transformed_event)
+    return next_event_dt, drifted
 
-            return jsonify({'data': transformed})
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({'data': [], 'error': str(e)})
+@api_bp.route("/api/job_targets")
+def get_job_targets():
+    """Return one aggregated row per (agent, job_name) for the high-level
+    dashboard events table.
 
-@api_bp.route("/api/backup_sets")
-def get_backup_sets():
-    """Return one aggregated row per backup set (backup_set_id) for the
-    high-level dashboard events table.
+    A "job_name" is a stable identifier for one logical, recurring job run
+    by an agent — e.g. a sync/backup script's name (local_sync_agent,
+    nas_sync_agent) or a restic job (snapshot_agent). A job_name may cover
+    multiple job targets (e.g. several source/destination pairs in one run)
+    and multiple backup_jobs runs over time; this rolls them all up into a
+    single row showing the earliest start time, the most recent activity
+    time, and a summary of run statuses (e.g. "success:2, error:1").
 
-    Each backup set may have multiple backup_jobs runs (full/incremental/
-    differential) over time; this rolls them up into a single row showing
-    the earliest start time, the most recent activity time, and a summary
-    of run statuses (e.g. "success:2, error:1").
+    Rows sharing a job_run_id (set once per overall script invocation) are
+    first collapsed into a single "run" using that run's earliest started_at
+    — this prevents a later pair/target's start time (or any mid-run
+    heartbeat/progress event) from being mistaken for the job's actual start.
+    Rows without a job_run_id (older agents, or single-target jobs) each form
+    their own one-row run, matching prior behavior.
     """
     try:
         with get_db_connection() as conn:
             c = conn.cursor()
             c.execute("""
                 SELECT
-                    bj.backup_set_id,
-                    bj.backup_set_name,
                     a.id AS agent_id,
                     a.hostname,
                     a.agent_type,
                     bj.job_name,
                     bj.status,
                     bj.started_at,
-                    bj.completed_at
+                    bj.completed_at,
+                    bj.job_run_id,
+                    bj.id AS backup_job_id
                 FROM backup_jobs bj
                 JOIN agents a ON bj.agent_id = a.id
                 ORDER BY bj.started_at ASC
             """)
             rows = c.fetchall()
 
-            c.execute("""
-                SELECT bj.backup_set_id, MAX(e.timestamp) as last_event_time
-                FROM events e
-                JOIN backup_jobs bj ON e.backup_job_id = bj.id
-                GROUP BY bj.backup_set_id
-            """)
-            last_event_by_set = {row['backup_set_id']: row['last_event_time'] for row in c.fetchall()}
+            schedules_by_job = get_all_job_schedules()
 
-            sets = {}
+            # Collapse rows into runs keyed by job_run_id (or this row's own
+            # id, when absent) so each run contributes exactly one start time.
+            runs = {}
             for row in rows:
-                set_id = row['backup_set_id']
-                entry = sets.get(set_id)
-                if entry is None:
-                    entry = {
-                        'backup_set_id': set_id,
-                        'backup_set_name': row['backup_set_name'] or set_id,
-                        'host': row['hostname'] or '',
-                        'agent_id': row['agent_id'],
-                        'agent_type': row['agent_type'] or '',
-                        'job_name': row['job_name'] or '',
-                        'start_time': row['started_at'],
-                        'last_activity': row['completed_at'] or row['started_at'],
-                        'status_counts': {}
-                    }
-                    sets[set_id] = entry
-                else:
-                    if row['started_at'] and (entry['start_time'] is None or row['started_at'] < entry['start_time']):
-                        entry['start_time'] = row['started_at']
-                    activity = row['completed_at'] or row['started_at']
-                    if activity and (entry['last_activity'] is None or activity > entry['last_activity']):
-                        entry['last_activity'] = activity
+                job_key = (row['agent_id'], row['job_name'])
+                run_key = (job_key, row['job_run_id'] or row['backup_job_id'])
+                run = runs.get(run_key)
+                if run is None:
+                    run = {'job_key': job_key, 'run_started_at': row['started_at'], 'status_counts': {}}
+                    runs[run_key] = run
+                elif row['started_at'] and (run['run_started_at'] is None or row['started_at'] < run['run_started_at']):
+                    run['run_started_at'] = row['started_at']
 
                 status = row['status'] or 'unknown'
-                entry['status_counts'][status] = entry['status_counts'].get(status, 0) + 1
+                run['status_counts'][status] = run['status_counts'].get(status, 0) + 1
+
+            jobs = {}
+            for run in runs.values():
+                key = run['job_key']
+                entry = jobs.get(key)
+                if entry is None:
+                    entry = {
+                        'start_time': run['run_started_at'],
+                        'last_activity': run['run_started_at'],
+                        'status_counts': {}
+                    }
+                    jobs[key] = entry
+                else:
+                    if run['run_started_at'] and (entry['start_time'] is None or run['run_started_at'] < entry['start_time']):
+                        entry['start_time'] = run['run_started_at']
+                    if run['run_started_at'] and (entry['last_activity'] is None or run['run_started_at'] > entry['last_activity']):
+                        entry['last_activity'] = run['run_started_at']
+
+                for status, count in run['status_counts'].items():
+                    entry['status_counts'][status] = entry['status_counts'].get(status, 0) + count
+
+            # host/agent_type are the same for every row of a given agent_id,
+            # so just pick them off the first matching row per job_name.
+            host_by_job = {}
+            agent_type_by_job = {}
+            for row in rows:
+                key = (row['agent_id'], row['job_name'])
+                host_by_job.setdefault(key, row['hostname'] or '')
+                agent_type_by_job.setdefault(key, row['agent_type'] or '')
 
             transformed = []
-            for set_id, entry in sets.items():
-                last_event_time = last_event_by_set.get(set_id)
+            for key, entry in jobs.items():
                 last_activity = entry['last_activity']
-                if last_event_time and (last_activity is None or last_event_time > last_activity):
-                    last_activity = last_event_time
 
                 status_summary = ', '.join(
                     f"{status}:{count}" for status, count in sorted(entry['status_counts'].items())
                 )
 
+                next_event_dt, schedule_drifted = _next_event_for_schedule(
+                    schedules_by_job.get(key), last_activity
+                )
+
                 transformed.append({
-                    'backup_set_id': set_id,
-                    'backup_set_name': entry['backup_set_name'],
-                    'host': entry['host'],
-                    'agent_id': entry['agent_id'],
-                    'agent_type': entry['agent_type'],
-                    'job_name': entry['job_name'],
+                    'host': host_by_job.get(key, ''),
+                    'agent_id': key[0],
+                    'agent_type': agent_type_by_job.get(key, ''),
+                    'job_name': key[1] or '',
                     'start_time': datetime.fromtimestamp(entry['start_time']).strftime('%Y-%m-%d %H:%M:%S') if entry['start_time'] else '',
                     'last_event_time': datetime.fromtimestamp(last_activity).strftime('%Y-%m-%d %H:%M:%S') if last_activity else '',
+                    'next_event': next_event_dt.strftime('%Y-%m-%d %H:%M:%S') if next_event_dt else '',
+                    'schedule_drifted': schedule_drifted,
                     'status_summary': status_summary,
                     'status_counts': entry['status_counts']
                 })
@@ -225,14 +196,13 @@ def get_backup_sets():
 
             return jsonify({'data': transformed})
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({'data': [], 'error': str(e)})
+        current_app.logger.error("Error building jobs table data: %s", e, exc_info=True)
+        return jsonify({'data': [], 'error': 'Failed to load jobs data'}), 500
 
 @api_bp.route("/api/agent_jobs/<int:agent_id>")
 def get_agent_jobs(agent_id):
     """Return recent backup jobs for a single agent, for the agent_detail page's
-    DataTables-driven Recent Jobs table (grouped client-side by backup_set_name).
+    DataTables-driven Recent Jobs table (grouped client-side by target_id).
     """
     try:
         with get_db_connection() as conn:
@@ -240,8 +210,8 @@ def get_agent_jobs(agent_id):
             c.execute("""
                 SELECT
                     bj.id,
-                    bj.backup_set_id,
-                    bj.backup_set_name,
+                    bj.target_id,
+                    bj.target_label,
                     bj.job_name,
                     bj.backup_type,
                     bj.status,
@@ -250,11 +220,21 @@ def get_agent_jobs(agent_id):
                     bj.runtime_seconds,
                     bj.files_count,
                     bj.bytes_processed,
+                    bj.percent_complete,
+                    bj.bytes_per_second,
+                    bj.eta_seconds,
+                    bj.current_item,
                     bj.error_message,
-                    latest_e.message as latest_event_message
+                    latest_e.message as latest_event_message,
+                    final_e.message as final_event_message
                 FROM backup_jobs bj
                 LEFT JOIN events latest_e ON latest_e.id = (
                     SELECT id FROM events WHERE backup_job_id = bj.id
+                    ORDER BY timestamp DESC, id DESC LIMIT 1
+                )
+                LEFT JOIN events final_e ON final_e.id = (
+                    SELECT id FROM events WHERE backup_job_id = bj.id
+                      AND event_type IN ('backup_complete', 'error')
                     ORDER BY timestamp DESC, id DESC LIMIT 1
                 )
                 WHERE bj.agent_id = ?
@@ -294,24 +274,82 @@ def get_agent_jobs(agent_id):
 
                 start_time_str = datetime.fromtimestamp(row['started_at']).strftime('%Y-%m-%d %H:%M:%S') if row['started_at'] else ''
 
+                # Prefer the terminal (backup_complete/error) event's message once
+                # the job is finished, so a post-completion heartbeat (e.g. a
+                # quick verify step) never overwrites "Backup/Sync complete" with
+                # its own status message.
+                if status_display == 'running':
+                    event_message = row['latest_event_message'] or ''
+                else:
+                    event_message = row['final_event_message'] or row['latest_event_message'] or ''
+
                 transformed.append({
                     'id': row['id'],
                     'starttimestamp': start_time_str,
+                    'started_at': row['started_at'],
                     'job_name': row['job_name'] or '',
                     'backup_type': backup_type,
-                    'event': row['error_message'] or row['latest_event_message'] or '',
-                    'backup_set_name': row['backup_set_name'] or row['backup_set_id'] or '',
+                    'event': row['error_message'] or event_message,
+                    'target_id': row['target_id'] or '',
+                    'target_label': row['target_label'] or row['target_id'] or '',
                     'runtime': runtime_str,
+                    'runtime_seconds_raw': row['runtime_seconds'],
                     'status': status_display,
                     'files_count': row['files_count'] or 0,
-                    'bytes_processed': row['bytes_processed'] or 0
+                    'bytes_processed': row['bytes_processed'] or 0,
+                    'percent_complete': row['percent_complete'],
+                    'bytes_per_second': row['bytes_per_second'],
+                    'eta_seconds': row['eta_seconds'],
+                    'current_item': row['current_item'] or ''
                 })
 
             return jsonify({'data': transformed})
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({'data': [], 'error': str(e)})
+        current_app.logger.error("Error loading agent jobs for agent %s: %s", agent_id, e, exc_info=True)
+        return jsonify({'data': [], 'error': 'Failed to load agent jobs'}), 500
+
+@api_bp.route("/api/agent_summary/<int:agent_id>")
+def get_agent_summary(agent_id):
+    """Return the agent_detail page's stat-card/summary numbers, for periodic
+    AJAX refresh (so e.g. the Running count updates without a full reload).
+    """
+    try:
+        with get_db_connection() as conn:
+            c = conn.cursor()
+            c.execute("""
+                SELECT COALESCE(status, 'unknown') as status, COUNT(*) as count
+                FROM backup_jobs WHERE agent_id = ? GROUP BY status
+            """, (agent_id,))
+            status_counts = {row['status']: row['count'] for row in c.fetchall()}
+
+            c.execute("""
+                SELECT COUNT(*) as total_jobs,
+                       SUM(bytes_processed) as total_bytes,
+                       SUM(files_count) as total_files,
+                       AVG(CASE WHEN status IN ('success', 'completed') THEN runtime_seconds END) as avg_runtime,
+                       MAX(started_at) as last_run
+                FROM backup_jobs WHERE agent_id = ?
+            """, (agent_id,))
+            totals = dict(c.fetchone())
+
+            avg_runtime = totals['avg_runtime']
+            avg_runtime_str = f"{int(avg_runtime // 60)}m {int(avg_runtime % 60)}s" if avg_runtime else '—'
+            last_run_str = datetime.fromtimestamp(totals['last_run']).strftime('%Y-%m-%d %H:%M:%S') if totals['last_run'] else '—'
+
+            return jsonify({
+                'total_jobs': totals['total_jobs'] or 0,
+                'success': (status_counts.get('success', 0) + status_counts.get('completed', 0)),
+                'errors': (status_counts.get('error', 0) + status_counts.get('failed', 0)),
+                'running': status_counts.get('running', 0),
+                'stopped': status_counts.get('stopped', 0),
+                'total_files': totals['total_files'] or 0,
+                'total_bytes_fmt': sizeof_fmt(totals['total_bytes'] or 0),
+                'avg_runtime_fmt': avg_runtime_str,
+                'last_run_fmt': last_run_str
+            })
+    except Exception as e:
+        current_app.logger.error("Error loading agent summary for agent %s: %s", agent_id, e, exc_info=True)
+        return jsonify({'error': 'Failed to load agent summary'}), 500
 
 @api_bp.route('/data/dashboard/events.json')
 def serve_events():
@@ -619,7 +657,7 @@ def delete_events():
                 if c.rowcount > 0:
                     deleted_count += 1
         except Exception as e:
-            print(f"Error deleting event {event_id}: {e}")
+            current_app.logger.error("Error deleting event %s: %s", event_id, e, exc_info=True)
 
     return jsonify({
         "success": True,

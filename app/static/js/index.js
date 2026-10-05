@@ -1,36 +1,34 @@
 // Index page JavaScript - Dashboard functionality
 
 $(document).ready(function () {
-    // --- Dashboard Backup Sets Table ---
-    // One row per backup_set_id, aggregating all runs (full/incremental/
-    // differential) that share that set.
-    const eventsTable = $('#eventsTable').DataTable({
+    // --- Dashboard Job Targets Table ---
+    // One row per (agent, job_name), aggregating all runs (full/incremental/
+    // differential, or repeated sync/snapshot runs, across every job target
+    // under that job_name) that share that job_name.
+    const jobsTable = $('#jobsTable').DataTable({
         ajax: {
-            url: '/api/backup_sets', // Fetch aggregated data from the Flask API
+            url: '/api/job_targets', // Fetch aggregated data from the Flask API
             dataSrc: 'data'          // Assumes response is { "data": [...] }
         },
         columns: [
             { data: 'host', title: 'Host' },
             { data: 'agent_type', title: 'Agent Type' },
-            { data: 'job_name', title: 'Backup Title' },
+            { data: 'job_name', title: 'Job Name' },
+            { data: 'start_time', title: 'First Job Started' },
+            { data: 'last_event_time', title: 'Last Job Started' },
             {
-                // Displays the human-friendly backup_set_name, but the
-                // underlying backup_set_id (unique across hosts/jobs) is
-                // used for sorting/searching via the render's 'sort'/'filter' types.
-                data: 'backup_set_name',
-                title: 'Backup Set ID',
+                data: 'next_event',
+                title: 'Next Job Start',
                 render: function (data, type, row) {
-                    if (type === 'sort' || type === 'filter') {
-                        return row.backup_set_id || data || '';
-                    }
-                    return data || '';
+                    if (type !== 'display') return data || '';
+                    if (!data) return 'Unknown';
+                    if (!row.schedule_drifted) return data;
+                    return `${data} <i class="fa-solid fa-triangle-exclamation text-warning" title="Last Job Started didn't match the reported schedule — Next Job Start may be stale or wrong"></i>`;
                 }
             },
-            { data: 'start_time', title: 'Start Time' },
-            { data: 'last_event_time', title: 'Last Event Time' },
             {
                 data: 'status_counts',
-                title: 'Status Summary',
+                title: 'Event Summary',
                 render: function (data) {
                     return renderStatusSummaryPills(data);
                 }
@@ -40,25 +38,26 @@ $(document).ready(function () {
             // Column 0 is excluded: Responsive auto-assigns it the
             // 'dtr-control' class for the mobile expand toggle, and adding
             // our own className here would clobber that.
-            { targets: [1, 2, 4, 5, 6], className: 'text-center' }
+            { targets: [1, 2, 3, 4, 5, 6], className: 'text-center' }
         ],
         lengthMenu: [[25, 50, 75, 100], [25, 50, 75, 100]],
         pageLength: 25,
         language: {
-            search: "Filter backup sets:",
-            lengthMenu: "Show _MENU_ backup sets",
-            info: "Showing _START_ to _END_ of _TOTAL_ backup sets",
+            search: "Filter Jobs:",
+            lengthMenu: "Show _MENU_ Jobs",
+            info: "Showing _START_ to _END_ of _TOTAL_ Jobs",
+            emptyTable: "No jobs reported yet."
         },
         responsive: true,
         paging: true,
         searching: true,
         ordering: true,
-        order: [[5, 'desc']],
-        // Whole row links to the matching group in that host's agent_detail
+        order: [[4, 'desc']],
+        // Whole row links to the matching job_name in that host's agent_detail
         // Recent Jobs table, mirroring agentsTable's clickable-row behavior.
         createdRow: function (row, data) {
             if (data.agent_id) {
-                const url = `/agents/${data.agent_id}?set=${encodeURIComponent(data.backup_set_name || '')}`;
+                const url = `/agents/${data.agent_id}?job_name=${encodeURIComponent(data.job_name || '')}`;
                 $(row).addClass('clickable-row').attr('data-href', url);
             }
         }
@@ -68,7 +67,7 @@ $(document).ready(function () {
     // and any interactive controls. Delegated since DataTables re-renders
     // rows on every page/sort/search.
     document.addEventListener('click', function (e) {
-        const row = e.target.closest('#eventsTable tr.clickable-row');
+        const row = e.target.closest('#jobsTable tr.clickable-row');
         if (!row) return;
         // First column is reserved for the responsive expand toggle and is
         // never itself a navigation target, mirroring agentsTable.
@@ -96,8 +95,8 @@ $(document).ready(function () {
                 .then(data => {
                     alert(data.message);
                     // Reload the events table only, not the whole page
-                    if ($('#eventsTable').length && $.fn.DataTable.isDataTable('#eventsTable')) {
-                        $('#eventsTable').DataTable().ajax.reload(null, false);
+                    if ($('#jobsTable').length && $.fn.DataTable.isDataTable('#jobsTable')) {
+                        $('#jobsTable').DataTable().ajax.reload(null, false);
                     } else {
                         location.reload();
                     }
@@ -502,8 +501,8 @@ $(document).ready(function () {
 
     // --- Refresh dashboard data periodically ---
     // Events table: near real-time (short interval), matches existing behavior.
-    setInterval(function () {
-        eventsTable.ajax.reload(null, false);
+    startAutoRefresh(function () {
+        jobsTable.ajax.reload(null, false);
     }, 10000); // every 10 seconds
 
     // Connected Agents card, Network Storage chart, and Cloud Storage chart:
@@ -521,7 +520,7 @@ $(document).ready(function () {
             .catch(error => console.error("Failed to refresh Connected Agents card:", error));
     }
 
-    setInterval(function () {
+    startAutoRefresh(function () {
         refreshAgentsCard();
         initializeDiskUsageChart();
         initializeS3UsageChart();

@@ -14,7 +14,7 @@ def list_agents():
         return render_template('agents.html', agents=agents_list)
     except Exception as e:
         current_app.logger.error(f"Error loading agents: {e}")
-        return render_template('agents.html', agents=[], error=str(e))
+        return render_template('agents.html', agents=[], error='Failed to load agents')
 
 
 @agents_bp.route('/add', methods=['POST'])
@@ -42,7 +42,7 @@ def add_agent():
 
     except Exception as e:
         current_app.logger.error(f"Error adding agent: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'Failed to register agent'}), 500
 
 
 @agents_bp.route('/<int:agent_id>/edit', methods=['POST'])
@@ -71,7 +71,7 @@ def edit_agent(agent_id):
 
     except Exception as e:
         current_app.logger.error(f"Error editing agent: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'Failed to update agent'}), 500
 
 
 @agents_bp.route('/<int:agent_id>/regenerate-key', methods=['POST'])
@@ -87,7 +87,7 @@ def regenerate_agent_key(agent_id):
 
     except Exception as e:
         current_app.logger.error(f"Error regenerating agent key: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'Failed to regenerate API key'}), 500
 
 
 @agents_bp.route('/<int:agent_id>/delete', methods=['POST'])
@@ -107,4 +107,4 @@ def delete_agent(agent_id):
 
     except Exception as e:
         current_app.logger.error(f"Error deleting agent: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'Failed to delete agent'}), 500

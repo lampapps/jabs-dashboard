@@ -1,16 +1,17 @@
 """Flask application factory and configuration."""
 
 import os
+import secrets
 from datetime import datetime
 from flask import Flask, render_template, send_from_directory
-from app.settings import TEMPLATE_DIR, STATIC_DIR, VERSION, ENV_MODE
+from app.settings import TEMPLATE_DIR, STATIC_DIR, VERSION, ENV_MODE, RESTIC_BROWSER_PATH
 from app.routes import register_blueprints
 
 def create_app():
     """Create and configure the Flask app."""
     app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
-    app.secret_key = os.environ.get("JABS_SECRET_KEY", "dev-secret-key")
-    app.config['APP_ENV'] = os.getenv('APP_ENV', 'production')
+    # Falls back to a random per-process key, never a static default, if unset
+    app.secret_key = os.environ.get("JABS_SECRET_KEY") or secrets.token_urlsafe(32)
     register_blueprints(app)
 
     @app.template_filter('datetimeformat')
@@ -33,6 +34,10 @@ def create_app():
         # Default for templates that don't explicitly pass env_mode (e.g. the
         # dev-mode banner), so it renders consistently on every page.
         return {"env_mode": ENV_MODE}
+
+    @app.context_processor
+    def inject_restic_browser():
+        return {"restic_browser_available": bool(RESTIC_BROWSER_PATH)}
 
     @app.route('/favicon.ico')
     def favicon():

@@ -7,9 +7,9 @@ $(document).ready(function () {
         lengthMenu: [[25, 50, 75, 100], [25, 50, 75, 100]],
         pageLength: 25,
         language: {
-            search: "Filter agents:",
-            lengthMenu: "Show _MENU_ agents",
-            info: "Showing _START_ to _END_ of _TOTAL_ agents",
+            search: "Filter Agents:",
+            lengthMenu: "Show _MENU_ Agents",
+            info: "Showing _START_ to _END_ of _TOTAL_ Agents",
             emptyTable: "No agents registered. Click \"Register Agent\" to add one."
         },
         responsive: true,

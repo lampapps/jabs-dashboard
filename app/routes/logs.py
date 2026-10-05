@@ -3,10 +3,43 @@
 import os
 import re
 from collections import Counter
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, send_from_directory, abort, jsonify, request
 from app.settings import LOG_DIR, MAX_LOG_LINES, ENV_MODE
 
 logs_bp = Blueprint('logs', __name__)
+
+LOG_NAME_RE = re.compile(r'^[\w\-.]+\.log$')
+
+
+@logs_bp.route("/logs/download/<log_name>")
+def download_log(log_name):
+    """Download a log file as an attachment, only allowing .log files."""
+    if not LOG_NAME_RE.match(log_name):
+        abort(400)
+    if not os.path.exists(os.path.join(LOG_DIR, log_name)):
+        abort(404)
+    return send_from_directory(LOG_DIR, log_name, as_attachment=True)
+
+
+@logs_bp.route("/logs/content/<log_name>")
+def log_content(log_name):
+    """Return a log file's content as JSON, optionally trimmed to its last `tail` lines."""
+    if not LOG_NAME_RE.match(log_name):
+        abort(400)
+    fpath = os.path.join(LOG_DIR, log_name)
+    if not os.path.exists(fpath):
+        abort(404)
+    try:
+        with open(fpath, encoding="utf-8") as f:
+            content = f.read()
+    except OSError:
+        abort(500)
+
+    tail = request.args.get("tail", type=int)
+    if tail:
+        lines = content.splitlines()
+        content = "\n".join(lines[-tail:])
+    return jsonify({"content": content})
 
 def get_log_stats(content):
     """Return a dict with counts of INFO, WARNING, ERROR, DEBUG, and other lines in the log content."""
@@ -46,13 +79,13 @@ def logs_view():
                 lines = content.splitlines()
                 trimmed_content = "\n".join(lines[-20:]) if len(lines) > 20 else content
 
-                # Pass both trimmed and full content
-                logs_list.append((fname, trimmed_content, stats, response_codes, content))
+                # Full content is fetched lazily via /logs/content/<name> instead of embedded here
+                logs_list.append((fname, trimmed_content, stats, response_codes))
             except OSError:
                 logs_list.append(
                     (fname, "Could not read log.",
                      {'total': 0, 'info': 0, 'warning': 0, 'error': 0, 'debug': 0, 'other': 0},
-                     None, "")
+                     None)
                 )
     return render_template(
         "logs.html",

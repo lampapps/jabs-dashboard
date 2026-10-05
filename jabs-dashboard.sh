@@ -14,7 +14,7 @@
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/../.env"
+ENV_FILE="$SCRIPT_DIR/.env"
 if [[ -f "$ENV_FILE" ]]; then
     set -a
     source "$ENV_FILE"
@@ -39,13 +39,16 @@ get_server_port() {
     fi
 }
 
-# Color output
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+# Color output (ANSI-C quoting so these are raw escape bytes, not literal
+# backslash text — needed since show_help's heredoc uses `cat`, not `echo -e`)
+GREEN=$'\033[0;32m'
+RED=$'\033[0;31m'
+YELLOW=$'\033[1;33m'
+BLUE=$'\033[0;34m'
+CYAN=$'\033[0;36m'
+BOLD=$'\033[1m'
+DIM=$'\033[2m'
+NC=$'\033[0m' # No Color
 
 # Helper functions
 print_status() {
@@ -308,13 +311,13 @@ setup_server() {
     if validate_setup; then
         print_success "Server setup complete!"
         echo ""
-        echo "Next steps:"
-        echo "  $0 start   - Start the server"
-        echo "  $0 status  - Check status"
-        echo "  $0 logs    - View logs"
+        echo -e "${BOLD}Next steps:${NC}"
+        echo -e "  ${CYAN}$0 start${NC}   - Start the server"
+        echo -e "  ${CYAN}$0 status${NC}  - Check status"
+        echo -e "  ${CYAN}$0 logs${NC}    - View logs"
         echo ""
         echo "To enable the digest email and retention purge, add a single CRON job: crontab -e"
-        echo "  */15 * * * * cd $SCRIPT_DIR && venv/bin/python scheduler.py >> logs/scheduler_cron.log > /dev/null 2>&1"
+        echo -e "  ${DIM}*/15 * * * * cd $SCRIPT_DIR && venv/bin/python scheduler.py >> logs/scheduler_cron.log > /dev/null 2>&1${NC}"
         return 0
     else
         print_error "Server setup validation failed."
@@ -326,63 +329,63 @@ setup_server() {
 # this host, using this machine's actual paths (including the venv
 # interpreter) so they can be pasted directly into a terminal.
 print_copy_paste_commands() {
-    echo "COPY/PASTE COMMANDS (this host):"
+    echo -e "${BOLD}COPY/PASTE COMMANDS${NC} ${DIM}(this host)${NC}:"
     echo ""
-    echo "  Run server in foreground (not via $0 start):"
-    echo "    $PYTHON_VENV $RUN_SCRIPT"
+    echo -e "  ${DIM}Run server in foreground (not via $0 start):${NC}"
+    echo -e "    ${CYAN}$PYTHON_VENV $RUN_SCRIPT${NC}"
     echo ""
-    echo "  Run the digest-email/retention-purge scheduler manually:"
-    echo "    $PYTHON_VENV $SCHEDULER_SCRIPT"
+    echo -e "  ${DIM}Run the digest-email/retention-purge scheduler manually:${NC}"
+    echo -e "    ${CYAN}$PYTHON_VENV $SCHEDULER_SCRIPT${NC}"
     echo ""
 }
 
 # Show help
 show_help() {
     cat << EOF
-JABS Dashboard Launcher
+${BOLD}JABS Dashboard Launcher${NC}
 
-USAGE:
+${BOLD}USAGE:${NC}
   $0 {setup|start|stop|restart|status|logs|reset}
   $0 help
 
-COMMANDS:
-  setup        - Setup server environment
-  start        - Start server in background
-  stop         - Stop server
-  restart      - Restart server
-  status       - Show server status
-  logs         - Follow server logs
-  reset        - Reset app (clear database, logs, locks)
-  help         - Show this help message
+${BOLD}COMMANDS:${NC}
+  ${CYAN}setup${NC}    Setup server environment
+  ${CYAN}start${NC}    Start server in background
+  ${CYAN}stop${NC}     Stop server
+  ${CYAN}restart${NC}  Restart server
+  ${CYAN}status${NC}   Show server status
+  ${CYAN}logs${NC}     Follow server logs
+  ${CYAN}reset${NC}    Reset app (clear database, logs, locks)
+  ${CYAN}help${NC}     Show this help message
 
-DIRECTORIES:
+${BOLD}DIRECTORIES:${NC}
   Server:      $SCRIPT_DIR
   Venv:        $VENV_PATH
   Log file:    $LOG_FILE
 
-WEB INTERFACE:
-  After starting server, access at: http://localhost:5000 (production)
-                              or: http://localhost:5001 (development)
+${BOLD}WEB INTERFACE:${NC}
+  After starting server, access at: ${CYAN}http://localhost:5000${NC} (production)
+                              or: ${CYAN}http://localhost:5001${NC} (development)
   Port depends on ENV_MODE environment variable (default: production)
 
-EXAMPLES:
-  # Initial setup
+${BOLD}EXAMPLES:${NC}
+  ${DIM}# Initial setup${NC}
   $0 setup
 
-  # Start server
+  ${DIM}# Start server${NC}
   $0 start
 
-  # Start and monitor logs
+  ${DIM}# Start and monitor logs${NC}
   $0 start
   $0 logs
 
-  # Check status
+  ${DIM}# Check status${NC}
   $0 status
 
-  # Stop server
+  ${DIM}# Stop server${NC}
   $0 stop
 
-  # Reset everything (clear DB, logs, locks)
+  ${DIM}# Reset everything (clear DB, logs, locks)${NC}
   $0 reset
 
 EOF
@@ -431,19 +434,19 @@ reset_app() {
     echo ""
     print_success "Server reset complete!"
     echo ""
-    echo "Reset items:"
-    echo "  ✓ Database cleared"
-    echo "  ✓ Logs cleared"
-    echo "  ✓ Lock files cleared"
+    echo -e "${BOLD}Reset items:${NC}"
+    echo -e "  ${GREEN}✓${NC} Database cleared"
+    echo -e "  ${GREEN}✓${NC} Logs cleared"
+    echo -e "  ${GREEN}✓${NC} Lock files cleared"
     echo ""
-    echo "Preserved items:"
-    echo "  ✓ Configuration files"
-    echo "  ✓ Application code"
-    echo "  ✓ Virtual environment"
+    echo -e "${BOLD}Preserved items:${NC}"
+    echo -e "  ${GREEN}✓${NC} Configuration files"
+    echo -e "  ${GREEN}✓${NC} Application code"
+    echo -e "  ${GREEN}✓${NC} Virtual environment"
     echo ""
-    echo "Next steps:"
-    echo "  $0 setup   - Re-initialize if needed"
-    echo "  $0 start   - Start fresh server"
+    echo -e "${BOLD}Next steps:${NC}"
+    echo -e "  ${CYAN}$0 setup${NC}   - Re-initialize if needed"
+    echo -e "  ${CYAN}$0 start${NC}   - Start fresh server"
     return 0
 }
 

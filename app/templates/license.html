@@ -2,8 +2,8 @@
 {% block title %}License{% endblock %}
 {% block top_scripts %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.8.1/github-markdown-light.min.css" id="md-light">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.8.1/github-markdown-dark.min.css" id="md-dark" disabled>
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/github-markdown-css/5.8.1/github-markdown-light.min.css') }}" id="md-light">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/github-markdown-css/5.8.1/github-markdown-dark.min.css') }}" id="md-dark" disabled>
 {% endblock %}
 {% block content %}
 <div class="container mt-4 mb-4">

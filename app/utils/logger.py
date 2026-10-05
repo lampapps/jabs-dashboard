@@ -6,6 +6,8 @@ import glob
 from datetime import datetime
 from app.settings import LOG_DIR, MAX_LOG_LINES, ENV_MODE
 
+_logger = logging.getLogger(__name__)
+
 class JobNameFormatter(logging.Formatter):
     """Custom formatter to include the job name in every log message."""
     def format(self, record):
@@ -83,7 +85,7 @@ def trim_log_file(log_path, max_lines):
             with open(log_path, 'w', encoding='utf-8') as f:
                 f.writelines(lines_to_keep)
     except OSError as e:
-        print(f"Error trimming log file {log_path}: {e}")
+        _logger.error("Error trimming log file %s: %s", log_path, e)
 
 def trim_all_logs():
     """Trim all log files in the log directory to MAX_LOG_LINES."""

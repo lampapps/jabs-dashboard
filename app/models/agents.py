@@ -66,20 +66,6 @@ def get_agent(agent_id):
         return agent
 
 
-def get_agent_by_hostname(hostname):
-    """Get an agent by hostname. Returns agent dict or None.
-
-    Note: hostname is not unique (multiple agents may share a machine), so
-    this returns the first match only. Prefer get_agent_by_agent_key() for
-    authenticating API requests.
-    """
-    with get_db_connection() as conn:
-        c = conn.cursor()
-        c.execute("SELECT * FROM agents WHERE hostname = ?", (hostname,))
-        row = c.fetchone()
-        return dict(row) if row else None
-
-
 def get_agent_by_agent_key(agent_key):
     """Get agent by its unique agent_key. Returns agent dict or None."""
     if not agent_key:
@@ -115,17 +101,19 @@ def list_agents():
         return agents_list
 
 
-def set_offline_notified(agent_id, notified):
-    """Record whether an offline-alert email has already been sent for this
-    agent's current offline streak (avoids re-sending on every scheduler
-    run). Cleared automatically the next time the agent sends a heartbeat
-    (see update_heartbeat)."""
+def record_offline_alert_sent(agent_id):
+    """Record that an offline-alert email was just sent for this agent's
+    current offline streak: bumps offline_alert_count and timestamps it, so
+    check_offline_agents() can enforce max_alerts/repeat_interval_minutes.
+    Cleared automatically the next time the agent sends a heartbeat (see
+    update_heartbeat)."""
     with get_db_connection() as conn:
         c = conn.cursor()
         now = time.time()
         c.execute(
-            "UPDATE agents SET offline_notified = ?, updated_at = ? WHERE id = ?",
-            (1 if notified else 0, now, agent_id)
+            "UPDATE agents SET offline_alert_count = offline_alert_count + 1, "
+            "last_offline_alert_at = ?, updated_at = ? WHERE id = ?",
+            (now, now, agent_id)
         )
         conn.commit()
         return c.rowcount > 0
@@ -168,13 +156,14 @@ def update_agent(agent_id, hostname=None, ip_address=None, agent_version=None, n
 
 
 def update_heartbeat(agent_id):
-    """Update last_heartbeat timestamp for an agent, and clear any pending
-    offline-alert flag now that the agent has checked back in."""
+    """Update last_heartbeat timestamp for an agent, and reset its offline-
+    alert streak now that the agent has checked back in."""
     with get_db_connection() as conn:
         c = conn.cursor()
         now = time.time()
         c.execute(
-            "UPDATE agents SET last_heartbeat = ?, offline_notified = 0, updated_at = ? WHERE id = ?",
+            "UPDATE agents SET last_heartbeat = ?, offline_alert_count = 0, "
+            "last_offline_alert_at = NULL, updated_at = ? WHERE id = ?",
             (now, now, agent_id)
         )
         conn.commit()

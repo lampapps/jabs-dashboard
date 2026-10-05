@@ -5,7 +5,6 @@ import json
 import time
 from datetime import datetime, timezone
 
-import requests
 import yaml
 from cron_descriptor import get_description
 from flask import Blueprint, render_template, current_app, abort
@@ -18,14 +17,6 @@ from app.models.agents import compute_agent_status
 from app.utils.logger import sizeof_fmt
 
 dashboard_bp = Blueprint('dashboard', 'dashboard')
-
-def load_storage_config(config_path):
-    """Load storage configuration from a YAML file."""
-    with open(config_path, "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
-    drives = config.get("drives", [])
-    s3_buckets = config.get("s3_buckets", [])
-    return drives, s3_buckets
 
 def _get_agents_summary():
     """Query registered agents + their backup metrics for the Connected Agents card.
@@ -85,10 +76,8 @@ def _get_agents_summary():
 
 def _get_daily_status_trend(cursor, agent_id=None, days=None):
     """Return a zero-filled, per-status daily job-count breakdown spanning
-    `days` days (defaults to RETENTION_MAX_DAYS). Non-purged jobs older than
-    this window still exist in the database (they're retained indefinitely)
-    but simply won't appear on the graph, which is intentionally capped to
-    this fixed window.
+    `days` days (defaults to RETENTION_MAX_DAYS), matching the same window
+    the retention purge uses to delete rows.
 
     Returns (trend_labels, trend_datasets) where trend_datasets is a dict of
     {status: [count_per_day, ...]} aligned with trend_labels, for rendering
@@ -174,7 +163,7 @@ def dashboard():
     agents = _get_agents_summary()
     status_counts, totals, trend_labels, trend_datasets = _get_global_stats()
 
-    with open('config/global.yaml', encoding="utf-8") as f:
+    with open(GLOBAL_CONFIG_PATH, encoding="utf-8") as f:
         global_config = yaml.safe_load(f)
 
 
@@ -202,9 +191,9 @@ def agents_card_partial():
 def agent_detail(agent_id):
     """Render a detail dashboard for a single registered agent.
 
-    Shows aggregate event/status counts, backup-type breakdown, an activity
-    trend (spanning RETENTION_MAX_DAYS days), and a recent-jobs
-    table — i.e. everything the agent reports to the dashboard.
+    Shows aggregate event/status counts, an activity trend (spanning
+    RETENTION_MAX_DAYS days), and a recent-jobs table — i.e. everything the
+    agent reports to the dashboard.
     """
     with get_db_connection() as conn:
         c = conn.cursor()
@@ -223,15 +212,6 @@ def agent_detail(agent_id):
             GROUP BY status
         """, (agent_id,))
         status_counts = {row['status']: row['count'] for row in c.fetchall()}
-
-        # Backup type breakdown (all-time) — powers the backup-type bar chart
-        c.execute("""
-            SELECT COALESCE(backup_type, 'unknown') as backup_type, COUNT(*) as count
-            FROM backup_jobs
-            WHERE agent_id = ?
-            GROUP BY backup_type
-        """, (agent_id,))
-        type_counts = {row['backup_type']: row['count'] for row in c.fetchall()}
 
         # Aggregate totals for the stat cards
         c.execute("""
@@ -256,7 +236,6 @@ def agent_detail(agent_id):
         "agent_detail.html",
         agent=agent,
         status_counts=status_counts,
-        type_counts=type_counts,
         totals=totals,
         trend_labels=trend_labels,
         trend_datasets=trend_datasets,
@@ -283,7 +262,7 @@ def license_page():
     """Render the documentation page from LICENSE.md."""
     license_path = os.path.join(BASE_DIR, "LICENSE.md")
     if not os.path.exists(license_path):
-        content = "<LICENSE.md not found.</p>"
+        content = Markup("<p>LICENSE.md not found.</p>")
     else:
         with open(license_path, "r", encoding="utf-8") as f:
             md_content = f.read()

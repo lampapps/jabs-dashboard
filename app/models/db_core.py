@@ -42,6 +42,7 @@ def init_db(db_path: str = DB_PATH):
         _create_agents_table(c)
         _create_backup_jobs_table(c)
         _create_events_table(c)
+        _create_job_schedules_table(c)
         # Apply migrations (adds any columns older DBs are missing) before
         # creating indexes that reference those columns.
         _migrate_schema(conn)
@@ -68,6 +69,8 @@ def _create_agents_table(cursor):
         enabled BOOLEAN DEFAULT 1,
         grace_period_minutes INTEGER DEFAULT 60,
         offline_notified BOOLEAN DEFAULT 0,
+        offline_alert_count INTEGER DEFAULT 0,
+        last_offline_alert_at REAL,
         created_at REAL NOT NULL,
         updated_at REAL NOT NULL
     );
@@ -82,8 +85,8 @@ def _create_backup_jobs_table(cursor):
         job_name TEXT NOT NULL,
         backup_type TEXT NOT NULL,
         run_id TEXT UNIQUE,
-        backup_set_id TEXT NOT NULL,
-        backup_set_name TEXT NOT NULL,
+        target_id TEXT NOT NULL,
+        target_label TEXT NOT NULL,
         source TEXT,
         destination TEXT,
         started_at REAL NOT NULL,
@@ -93,8 +96,15 @@ def _create_backup_jobs_table(cursor):
         files_count INTEGER,
         bytes_processed INTEGER,
         bytes_compressed INTEGER,
+        percent_complete INTEGER,
+        bytes_per_second REAL,
+        eta_seconds INTEGER,
+        current_item TEXT,
+        progress_updated_at REAL,
         error_code INTEGER,
         error_message TEXT,
+        external_id TEXT,
+        job_run_id TEXT,
         created_at REAL NOT NULL,
         updated_at REAL NOT NULL,
         FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
@@ -117,6 +127,21 @@ def _create_events_table(cursor):
     );
     """)
 
+def _create_job_schedules_table(cursor):
+    """Create table mapping each (agent, job_name) to its reported cron
+    schedule(s), used to compute the dashboard's "Next Event" column.
+    """
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS job_schedules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        agent_id INTEGER NOT NULL,
+        job_name TEXT NOT NULL,
+        cron_schedule TEXT NOT NULL,
+        updated_at REAL NOT NULL,
+        FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+    );
+    """)
+
 def _create_indexes(cursor):
     """Create indexes for efficient querying."""
     # Agents
@@ -127,13 +152,18 @@ def _create_indexes(cursor):
     # Backup jobs
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_backup_jobs_agent ON backup_jobs(agent_id)")
     cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_backup_jobs_run_id ON backup_jobs(run_id)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_backup_jobs_set_id ON backup_jobs(backup_set_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_backup_jobs_target_id ON backup_jobs(target_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_backup_jobs_started ON backup_jobs(started_at DESC)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_backup_jobs_status ON backup_jobs(status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_backup_jobs_external_id ON backup_jobs(external_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_backup_jobs_job_run_id ON backup_jobs(job_run_id)")
 
     # Events
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_backup_job ON events(backup_job_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp DESC)")
+
+    # Job schedules
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_job_schedules_agent_job ON job_schedules(agent_id, job_name)")
 
 def _migrate_schema(conn):
     """Apply schema migrations for existing databases."""
@@ -143,6 +173,12 @@ def _migrate_schema(conn):
     if 'run_id' not in columns:
         c.execute("ALTER TABLE backup_jobs ADD COLUMN run_id TEXT")
         c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_backup_jobs_run_id ON backup_jobs(run_id)")
+    if 'external_id' not in columns:
+        c.execute("ALTER TABLE backup_jobs ADD COLUMN external_id TEXT")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_backup_jobs_external_id ON backup_jobs(external_id)")
+    if 'job_run_id' not in columns:
+        c.execute("ALTER TABLE backup_jobs ADD COLUMN job_run_id TEXT")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_backup_jobs_job_run_id ON backup_jobs(job_run_id)")
 
     c.execute("PRAGMA table_info(agents)")
     agent_columns = {row[1] for row in c.fetchall()}
@@ -150,3 +186,7 @@ def _migrate_schema(conn):
         c.execute("ALTER TABLE agents ADD COLUMN grace_period_minutes INTEGER DEFAULT 60")
     if 'offline_notified' not in agent_columns:
         c.execute("ALTER TABLE agents ADD COLUMN offline_notified BOOLEAN DEFAULT 0")
+    if 'offline_alert_count' not in agent_columns:
+        c.execute("ALTER TABLE agents ADD COLUMN offline_alert_count INTEGER DEFAULT 0")
+    if 'last_offline_alert_at' not in agent_columns:
+        c.execute("ALTER TABLE agents ADD COLUMN last_offline_alert_at REAL")

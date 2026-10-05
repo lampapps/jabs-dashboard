@@ -1,5 +1,3 @@
-// filepath: /home/jim2/jabs3/static/js/global.js
-
 // --- Theme Switcher Functions ---
 function setTheme(mode) {
   localStorage.setItem('theme', mode);
@@ -30,7 +28,7 @@ function applyTheme(mode) {
 }
 // --- End Theme Switcher Functions ---
 
-// --- Shared Status Badge Renderer (used by eventsTable and recentJobsTable) ---
+// --- Shared Status Badge Renderer (used by jobsTable and eventsTable) ---
 function renderStatusBadge(status) {
   const s = (status || '').toLowerCase();
   if (s === 'success' || s === 'completed') {
@@ -55,6 +53,21 @@ function renderStatusBadge(status) {
 }
 // --- End Shared Status Badge Renderer ---
 
+// --- Launch Restic Browser (runs on the dashboard server; localhost-only) ---
+function launchResticBrowser() {
+  fetch('/tools/launch-restic-browser', { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+      if (!data.success) {
+        alert('Failed to launch Restic Browser: ' + (data.error || 'Unknown error'));
+      }
+    })
+    .catch(() => {
+      alert('An error occurred while launching Restic Browser.');
+    });
+}
+// --- End Launch Restic Browser ---
+
 // --- Shared Status Summary Pills Renderer (e.g. {"success": 2, "error": 1}) ---
 function renderStatusSummaryPills(statusCounts) {
   if (!statusCounts || typeof statusCounts !== 'object') return '';
@@ -64,7 +77,7 @@ function renderStatusSummaryPills(statusCounts) {
     error: 'bg-danger',
     failed: 'bg-danger',
     skipped: 'bg-secondary',
-    stopped: 'bg-warning text-dark',
+    stopped: 'bg-warning text-dark', //see global.css for custom color to match Chart below
     running: 'bg-info',
     purged: 'bg-dark'
   };
@@ -92,6 +105,32 @@ function getStatusChartColor(status) {
   return colors[(status || '').toLowerCase()] || '#0d6efd';
 }
 // --- End Shared Status Chart Color Mapping ---
+
+// --- Shared Transfer Rate Formatter (bytes/sec -> human-readable string) ---
+function formatRate(bytesPerSecond) {
+  const n = Number(bytesPerSecond);
+  if (!n || n <= 0) return '—';
+  const units = ['B/s', 'KiB/s', 'MiB/s', 'GiB/s', 'TiB/s'];
+  let value = n;
+  for (const unit of units) {
+    if (Math.abs(value) < 1024.0) {
+      return `${value.toFixed(1)} ${unit}`;
+    }
+    value /= 1024.0;
+  }
+  return `${value.toFixed(1)} PiB/s`;
+}
+// --- End Shared Transfer Rate Formatter ---
+
+// --- Shared Auto-Refresh Helper (pauses while the tab is backgrounded) ---
+// Wraps setInterval so pages don't keep polling a hidden/background tab.
+function startAutoRefresh(fn, intervalMs) {
+  return setInterval(function () {
+    if (document.hidden) return;
+    fn();
+  }, intervalMs);
+}
+// --- End Shared Auto-Refresh Helper ---
 
 
 $(document).ready(function () { // Ensure DOM is ready
