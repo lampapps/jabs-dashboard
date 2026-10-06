@@ -396,6 +396,16 @@ EOF
 reset_app() {
     print_section "JABS Dashboard Reset"
 
+    print_warning "This will permanently delete the database, logs, and lock file."
+    read -r -p "Are you sure you want to reset the JABS Dashboard? [y/N] " confirm
+    case "$confirm" in
+        [yY]|[yY][eE][sS]) ;;
+        *)
+            print_status "Reset cancelled."
+            return 1
+            ;;
+    esac
+
     # Stop server if running
     if running_pid=$(is_running); then
         print_status "Stopping server before reset..."

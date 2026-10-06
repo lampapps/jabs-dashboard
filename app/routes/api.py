@@ -659,6 +659,8 @@ def delete_events():
         except Exception as e:
             current_app.logger.error("Error deleting event %s: %s", event_id, e, exc_info=True)
 
+    current_app.logger.info("Deleted %d event(s) (requested ids: %s)", deleted_count, ids)
+
     return jsonify({
         "success": True,
         "deleted": deleted_count,

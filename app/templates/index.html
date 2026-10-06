@@ -64,6 +64,14 @@
                 </div>
             </div>
         </div>
+        <div class="col-6 col-md-4 col-xl mb-3">
+            <div class="card stat-card text-center border-secondary">
+                <div class="card-body py-2">
+                    <div class="fs-3 fw-bold text-secondary">{{ status_counts.purged or 0 }}</div>
+                    <div class="text-muted small text-uppercase">Purged</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="row pb-3" id="dashboard-cards-row">
@@ -155,7 +163,7 @@
                                 <th>First Job Started</th>
                                 <th>Last Job Started</th>
                                 <th>Next Job Start</th>
-                                <th>Event Summary</th>
+                                <th>Job Summary</th>
                             </tr>
                         </thead>
                         <tbody>                              

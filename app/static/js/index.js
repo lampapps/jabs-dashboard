@@ -28,7 +28,7 @@ $(document).ready(function () {
             },
             {
                 data: 'status_counts',
-                title: 'Event Summary',
+                title: 'Job Summary',
                 render: function (data) {
                     return renderStatusSummaryPills(data);
                 }
