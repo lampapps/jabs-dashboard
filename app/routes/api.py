@@ -509,8 +509,18 @@ def get_s3_usage():
         except OSError:
             pass
 
+    configured_buckets = sorted(
+        bucket.get("bucket") if isinstance(bucket, dict) else bucket
+        for bucket in s3_buckets
+    )
+
     def cache_fresh(cache):
-        ts = cache.get("timestamp", 0) if cache else 0
+        if not cache:
+            return False
+        ts = cache.get("timestamp", 0)
+        # Invalidate immediately if the configured bucket list changed, regardless of TTL
+        if cache.get("buckets") != configured_buckets:
+            return False
         return (time.time() - ts) < S3_CACHE_TTL
 
     def get_bucket_breakdown(bucket_name):
@@ -577,7 +587,7 @@ def get_s3_usage():
                     })
                 except Exception as e:
                     result.append({"bucket": bucket_name, "label": label, "error": str(e)})
-        return {"timestamp": time.time(), "data": result}
+        return {"timestamp": time.time(), "buckets": configured_buckets, "data": result}
 
 
     cache = load_cache()

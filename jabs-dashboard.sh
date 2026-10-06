@@ -224,7 +224,11 @@ start_server() {
     ensure_log_dir
 
     cd "$SCRIPT_DIR"
-    nohup "$PYTHON_VENV" "$RUN_SCRIPT" > "$LOG_FILE" 2>&1 &
+    # Append (not truncate) redirect: the server's stdout/stderr fd must stay
+    # O_APPEND so it always writes at current EOF. A non-append fd keeps a
+    # stale write offset, so truncating server.log (purge/trim) later leaves
+    # a huge NUL-byte sparse hole before the next write lands.
+    nohup "$PYTHON_VENV" "$RUN_SCRIPT" >> "$LOG_FILE" 2>&1 &
     local pid=$!
     echo "$pid" > "$PID_FILE"
 
