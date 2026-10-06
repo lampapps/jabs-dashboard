@@ -687,6 +687,8 @@ def delete_backup_jobs():
                 current_app.logger.error(f"Error deleting backup job {job_id}: {e}")
         conn.commit()
 
+    current_app.logger.info("Deleted %d backup job(s) (requested ids: %s)", deleted_count, ids)
+
     return jsonify({
         "success": True,
         "deleted": deleted_count,
