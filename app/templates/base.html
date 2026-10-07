@@ -56,10 +56,15 @@
                   Agents
                 </a>
               </li>
+              <li>
+                <a class="nav-link {% if request.endpoint == 'logs.logs_view' %}active{% endif %}" href="{{ url_for('logs.logs_view') }}">
+                  Logs
+                </a>
+              </li>
               <li class="nav-item dropdown
-                  {% if request.endpoint in ['dashboard.help', 'dashboard.documentation', 'logs.logs_view'] %}active{% endif %}">
+                  {% if request.endpoint in ['dashboard.help', 'dashboard.documentation'] %}active{% endif %}">
                 <a class="nav-link dropdown-toggle
-                  {% if request.endpoint in ['dashboard.help', 'dashboard.documentation', 'logs.logs_view'] %}active{% endif %}"
+                  {% if request.endpoint in ['dashboard.help', 'dashboard.documentation'] %}active{% endif %}"
                   href="#" id="helpDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                   Help
                 </a>
@@ -67,11 +72,6 @@
                   <li>
                     <a class="dropdown-item {% if request.endpoint == 'dashboard.documentation' %}active{% endif %}" href="{{ url_for('dashboard.documentation') }}">
                       <i class="fas fa-book me-1"></i> Documentation
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item {% if request.endpoint == 'logs.logs_view' %}active{% endif %}" href="{{ url_for('logs.logs_view') }}">
-                      <i class="fas fa-file-alt me-1"></i> Logs
                     </a>
                   </li>
                   <li>

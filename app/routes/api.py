@@ -342,6 +342,7 @@ def get_agent_summary(agent_id):
                 'errors': (status_counts.get('error', 0) + status_counts.get('failed', 0)),
                 'running': status_counts.get('running', 0),
                 'stopped': status_counts.get('stopped', 0),
+                'purged': status_counts.get('purged', 0),
                 'total_files': totals['total_files'] or 0,
                 'total_bytes_fmt': sizeof_fmt(totals['total_bytes'] or 0),
                 'avg_runtime_fmt': avg_runtime_str,

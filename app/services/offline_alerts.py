@@ -47,25 +47,26 @@ def check_offline_agents():
     now = time.time()
     sent_count = 0
     for agent in agents:
+        agent_label = f"{agent['hostname']} ({agent.get('agent_type') or 'unknown type'})"
         if agent.get("status") != "offline":
-            email_logger.debug(f"Agent '{agent['hostname']}' (id={agent['id']}) status is '{agent.get('status')}'; skipping.")
+            email_logger.debug(f"Agent '{agent_label}' (id={agent['id']}) status is '{agent.get('status')}'; skipping.")
             continue
 
         alert_count = agent.get("offline_alert_count") or 0
         if max_alerts and alert_count >= max_alerts:
             email_logger.debug(
-                f"Agent '{agent['hostname']}' (id={agent['id']}) already alerted {alert_count}/{max_alerts} times; skipping."
+                f"Agent '{agent_label}' (id={agent['id']}) already alerted {alert_count}/{max_alerts} times; skipping."
             )
             continue
 
         last_alert_at = agent.get("last_offline_alert_at")
         if alert_count > 0 and last_alert_at and (now - last_alert_at) < repeat_interval_minutes * 60:
             email_logger.debug(
-                f"Agent '{agent['hostname']}' (id={agent['id']}) alerted {repeat_interval_minutes} min ago; not due yet."
+                f"Agent '{agent_label}' (id={agent['id']}) alerted {repeat_interval_minutes} min ago; not due yet."
             )
             continue
 
-        email_logger.debug(f"Agent '{agent['hostname']}' (id={agent['id']}) offline; sending alert email ({alert_count + 1}).")
+        email_logger.debug(f"Agent '{agent_label}' (id={agent['id']}) offline; sending alert email ({alert_count + 1}).")
 
         html_body = render_template(
             "email/agent_offline_email.html",
@@ -78,14 +79,14 @@ def check_offline_agents():
             alert_number=alert_count + 1,
             max_alerts=max_alerts,
         )
-        subject = f"JABS Alert: Agent '{agent['hostname']}' is offline"
+        subject = f"JABS Alert: Agent '{agent_label}' is offline"
 
         if _send_email(subject, html_body, html=True):
             record_offline_alert_sent(agent["id"])
             sent_count += 1
-            email_logger.debug(f"Sent offline alert for agent '{agent['hostname']}' (id={agent['id']})")
+            email_logger.debug(f"Sent offline alert for agent '{agent_label}' (id={agent['id']})")
         else:
-            email_logger.error(f"Failed to send offline alert for agent '{agent['hostname']}' (id={agent['id']})")
+            email_logger.error(f"Failed to send offline alert for agent '{agent_label}' (id={agent['id']})")
 
 
     email_logger.debug(f"Offline alert check complete: {sent_count} alert email(s) sent.")

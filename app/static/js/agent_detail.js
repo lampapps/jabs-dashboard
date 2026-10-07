@@ -307,6 +307,7 @@ function refreshAgentSummary(agentId) {
             document.getElementById('statErrors').textContent = data.errors;
             document.getElementById('statRunning').textContent = data.running;
             document.getElementById('statStopped').textContent = data.stopped;
+            document.getElementById('statPurged').textContent = data.purged;
             document.getElementById('sumFiles').textContent = data.total_files.toLocaleString();
             document.getElementById('sumBytes').textContent = data.total_bytes_fmt;
             document.getElementById('sumAvgRuntime').textContent = data.avg_runtime_fmt;
