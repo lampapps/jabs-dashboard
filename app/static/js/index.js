@@ -20,7 +20,10 @@ $(document).ready(function () {
                 render: function (data, type, row) {
                     if (type !== 'display') return data || '';
                     if (!data) return '';
-                    return `${data} ${getStatusIcon(row.last_status)}`;
+                    const driftIcon = row.schedule_drifted
+                        ? ' <i class="fas fa-exclamation-triangle text-warning" title="Last Job Started didn\'t match the reported schedule — This could be a manual run or the Next Job Start may be wrong"></i>'
+                        : '';
+                    return `${data} ${getStatusIcon(row.last_status)}${driftIcon}`;
                 }
             },
             {
@@ -29,13 +32,12 @@ $(document).ready(function () {
                 render: function (data, type, row) {
                     if (type !== 'display') return data || '';
                     if (!data) return 'Unknown';
-                    if (!row.schedule_drifted) return data;
-                    return `${data} <i class="fas fa-exclamation-triangle text-warning" title="Last Job Started didn't match the reported schedule — Next Job Start may be stale or wrong"></i>`;
+                    return data;
                 }
             },
             {
                 data: 'status_counts',
-                title: 'Status',
+                title: 'Status History',
                 render: function (data) {
                     return renderStatusSummaryPills(data);
                 }
@@ -196,6 +198,7 @@ $(document).ready(function () {
                         indexAxis: 'y',
                         responsive: true,
                         maintainAspectRatio: false,
+                        animation: false,
                         plugins: {
                             legend: { position: 'top' },
                             tooltip: {
@@ -380,6 +383,7 @@ $(document).ready(function () {
                         indexAxis: 'y',
                         responsive: true,
                         maintainAspectRatio: false,
+                        animation: false,
                         plugins: {
                             legend: { display: false },
                             tooltip: {
