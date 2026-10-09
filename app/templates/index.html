@@ -15,7 +15,7 @@
         <!-- Modified Column for Badges -->
         <div class="col-md-6 mb-4 mb-ms-0">
             <!-- Use flexbox to align items horizontally -->
-            <div class="mt-4 mt-ms-0 d-flex align-items-center justify-content-md-end flex-wrap gap-2">
+            <div class="mt-4 mt-ms-0 d-flex align-items-center justify-content-md-end flex-wrap gap-2" id="monitor-badges">
                 {% include 'partials/monitor_badges.html' %}
             </div>
         </div>
@@ -27,7 +27,7 @@
         <div class="col-6 col-md-4 col-xl mb-3">
             <div class="card stat-card text-center">
                 <div class="card-body py-2">
-                    <div class="fs-3 fw-bold">{{ totals.total_jobs or 0 }}</div>
+                    <div class="fs-3 fw-bold" id="stat-total-jobs">{{ totals.total_jobs or 0 }}</div>
                     <div class="text-muted small text-uppercase">Total Jobs</div>
                 </div>
             </div>
@@ -35,7 +35,7 @@
         <div class="col-6 col-md-4 col-xl mb-3">
             <div class="card stat-card text-center border-success">
                 <div class="card-body py-2">
-                    <div class="fs-3 fw-bold text-success">{{ (status_counts.success or 0) + (status_counts.completed or 0) }}</div>
+                    <div class="fs-3 fw-bold text-success" id="stat-success">{{ (status_counts.success or 0) + (status_counts.completed or 0) }}</div>
                     <div class="text-muted small text-uppercase">Success</div>
                 </div>
             </div>
@@ -43,7 +43,7 @@
         <div class="col-6 col-md-4 col-xl mb-3">
             <div class="card stat-card text-center border-danger">
                 <div class="card-body py-2">
-                    <div class="fs-3 fw-bold text-danger">{{ (status_counts.error or 0) + (status_counts.failed or 0) }}</div>
+                    <div class="fs-3 fw-bold text-danger" id="stat-errors">{{ (status_counts.error or 0) + (status_counts.failed or 0) }}</div>
                     <div class="text-muted small text-uppercase">Errors</div>
                 </div>
             </div>
@@ -51,7 +51,7 @@
         <div class="col-6 col-md-4 col-xl mb-3">
             <div class="card stat-card text-center border-info">
                 <div class="card-body py-2">
-                    <div class="fs-3 fw-bold text-info">{{ status_counts.running or 0 }}</div>
+                    <div class="fs-3 fw-bold text-info" id="stat-running">{{ status_counts.running or 0 }}</div>
                     <div class="text-muted small text-uppercase">Running</div>
                 </div>
             </div>
@@ -59,7 +59,7 @@
         <div class="col-6 col-md-4 col-xl mb-3">
             <div class="card stat-card text-center border-warning">
                 <div class="card-body py-2">
-                    <div class="fs-3 fw-bold text-warning">{{ status_counts.stopped or 0 }}</div>
+                    <div class="fs-3 fw-bold text-warning" id="stat-stopped">{{ status_counts.stopped or 0 }}</div>
                     <div class="text-muted small text-uppercase">Stopped</div>
                 </div>
             </div>
@@ -67,7 +67,7 @@
         <div class="col-6 col-md-4 col-xl mb-3">
             <div class="card stat-card text-center border-secondary">
                 <div class="card-body py-2">
-                    <div class="fs-3 fw-bold text-secondary">{{ status_counts.purged or 0 }}</div>
+                    <div class="fs-3 fw-bold text-secondary" id="stat-purged">{{ status_counts.purged or 0 }}</div>
                     <div class="text-muted small text-uppercase">Purged</div>
                 </div>
             </div>
@@ -160,10 +160,9 @@
                                 <th>Host</th>
                                 <th>Type</th>
                                 <th>Job Name</th>
-                                <th>First Job Started</th>
                                 <th>Last Job Started</th>
                                 <th>Next Job Start</th>
-                                <th>Job Summary</th>
+                                <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>                              

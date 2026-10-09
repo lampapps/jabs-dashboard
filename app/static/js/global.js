@@ -70,7 +70,8 @@ function renderStatusSummaryPills(statusCounts) {
   return Object.keys(statusCounts).sort().map(function (status) {
     const count = statusCounts[status];
     const colorClass = statusColors[status.toLowerCase()] || 'bg-light text-dark';
-    return `<span class="badge ${colorClass} me-1">${status}: ${count}</span>`;
+    return `<span class="badge ${colorClass} me-1"> ${count} </span>`;
+    // return `<span class="badge ${colorClass} me-1">${status}: ${count}</span>`;
   }).join('');
 }
 // --- End Shared Status Summary Pills Renderer ---
@@ -91,6 +92,24 @@ function getStatusChartColor(status) {
   return colors[(status || '').toLowerCase()] || '#0d6efd';
 }
 // --- End Shared Status Chart Color Mapping ---
+
+// --- Shared Status Icon Renderer (small at-a-glance icon, e.g. next to a timestamp) ---
+function getStatusIcon(status) {
+  const s = (status || '').toLowerCase();
+  const icons = {
+    success: 'fa-check-circle text-success',
+    completed: 'fa-check-circle text-success',
+    error: 'fa-times-circle text-danger',
+    failed: 'fa-times-circle text-danger',
+    skipped: 'fa-forward text-secondary',
+    stopped: 'fa-pause-circle text-warning',
+    running: 'fa-spinner fa-spin text-info',
+    purged: 'fa-trash text-dark'
+  };
+  const iconClass = icons[s] || 'fa-question-circle text-muted';
+  return `<i class="fas ${iconClass}" title="${s || 'unknown'}"></i>`;
+}
+// --- End Shared Status Icon Renderer ---
 
 // --- Shared Transfer Rate Formatter (bytes/sec -> human-readable string) ---
 function formatRate(bytesPerSecond) {

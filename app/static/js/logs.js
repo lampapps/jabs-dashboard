@@ -241,7 +241,7 @@
             if (!pre) return;
             navigator.clipboard.writeText(pre.dataset.rawContent || pre.textContent).then(() => {
                 const original = this.innerHTML;
-                this.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+                this.innerHTML = '<i class="fas fa-check"></i> Copied!';
                 setTimeout(() => { this.innerHTML = original; }, 1500);
             });
         });

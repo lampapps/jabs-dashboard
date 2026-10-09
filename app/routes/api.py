@@ -34,6 +34,21 @@ api_bp = Blueprint('api', __name__)
 # crontab entry).
 SCHEDULE_DRIFT_TOLERANCE = timedelta(minutes=5)
 
+# Precedence (highest first) used to pick one representative status for a
+# run that covers multiple targets/pairs with differing statuses, e.g. for
+# the dashboard's Last Job Started status icon.
+STATUS_PRIORITY = ['error', 'failed', 'stopped', 'running', 'skipped', 'purged', 'success', 'completed']
+
+
+def _representative_status(status_counts):
+    """Return the single most noteworthy status in status_counts per
+    STATUS_PRIORITY (e.g. one failed target outranks several successful
+    ones). Falls back to whatever status is present, or 'unknown'."""
+    for candidate in STATUS_PRIORITY:
+        if status_counts.get(candidate):
+            return candidate
+    return next(iter(status_counts), 'unknown')
+
 
 def _next_event_for_schedule(cron_schedule, last_activity):
     """Return (next_event_dt, drifted) for a comma-separated cron_schedule.
@@ -90,8 +105,8 @@ def get_job_targets():
     nas_sync_agent) or a restic job (snapshot_agent). A job_name may cover
     multiple job targets (e.g. several source/destination pairs in one run)
     and multiple backup_jobs runs over time; this rolls them all up into a
-    single row showing the earliest start time, the most recent activity
-    time, and a summary of run statuses (e.g. "success:2, error:1").
+    single row showing the most recent activity time and a summary of run
+    statuses (e.g. "success:2, error:1").
 
     Rows sharing a job_run_id (set once per overall script invocation) are
     first collapsed into a single "run" using that run's earliest started_at
@@ -141,19 +156,19 @@ def get_job_targets():
             jobs = {}
             for run in runs.values():
                 key = run['job_key']
+                run_status = _representative_status(run['status_counts'])
                 entry = jobs.get(key)
                 if entry is None:
                     entry = {
-                        'start_time': run['run_started_at'],
                         'last_activity': run['run_started_at'],
+                        'last_status': run_status,
                         'status_counts': {}
                     }
                     jobs[key] = entry
                 else:
-                    if run['run_started_at'] and (entry['start_time'] is None or run['run_started_at'] < entry['start_time']):
-                        entry['start_time'] = run['run_started_at']
                     if run['run_started_at'] and (entry['last_activity'] is None or run['run_started_at'] > entry['last_activity']):
                         entry['last_activity'] = run['run_started_at']
+                        entry['last_status'] = run_status
 
                 for status, count in run['status_counts'].items():
                     entry['status_counts'][status] = entry['status_counts'].get(status, 0) + count
@@ -184,15 +199,15 @@ def get_job_targets():
                     'agent_id': key[0],
                     'agent_type': agent_type_by_job.get(key, ''),
                     'job_name': key[1] or '',
-                    'start_time': datetime.fromtimestamp(entry['start_time']).strftime('%Y-%m-%d %H:%M:%S') if entry['start_time'] else '',
                     'last_event_time': datetime.fromtimestamp(last_activity).strftime('%Y-%m-%d %H:%M:%S') if last_activity else '',
+                    'last_status': entry['last_status'],
                     'next_event': next_event_dt.strftime('%Y-%m-%d %H:%M:%S') if next_event_dt else '',
                     'schedule_drifted': schedule_drifted,
                     'status_summary': status_summary,
                     'status_counts': entry['status_counts']
                 })
 
-            transformed.sort(key=lambda x: x['start_time'], reverse=True)
+            transformed.sort(key=lambda x: x['last_event_time'], reverse=True)
 
             return jsonify({'data': transformed})
     except Exception as e:

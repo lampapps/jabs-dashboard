@@ -109,7 +109,7 @@ function initializeAgentDetailCharts(detail) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: trendStatuses.length > 1, position: 'bottom' } },
+            plugins: { legend: { position: 'bottom' } },
             scales: {
                 x: { stacked: true, ticks: { display: false } },
                 y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }

@@ -14,8 +14,15 @@ $(document).ready(function () {
             { data: 'host', title: 'Host' },
             { data: 'agent_type', title: 'Agent Type' },
             { data: 'job_name', title: 'Job Name' },
-            { data: 'start_time', title: 'First Job Started' },
-            { data: 'last_event_time', title: 'Last Job Started' },
+            {
+                data: 'last_event_time',
+                title: 'Last Job Started',
+                render: function (data, type, row) {
+                    if (type !== 'display') return data || '';
+                    if (!data) return '';
+                    return `${data} ${getStatusIcon(row.last_status)}`;
+                }
+            },
             {
                 data: 'next_event',
                 title: 'Next Job Start',
@@ -23,12 +30,12 @@ $(document).ready(function () {
                     if (type !== 'display') return data || '';
                     if (!data) return 'Unknown';
                     if (!row.schedule_drifted) return data;
-                    return `${data} <i class="fa-solid fa-triangle-exclamation text-warning" title="Last Job Started didn't match the reported schedule — Next Job Start may be stale or wrong"></i>`;
+                    return `${data} <i class="fas fa-exclamation-triangle text-warning" title="Last Job Started didn't match the reported schedule — Next Job Start may be stale or wrong"></i>`;
                 }
             },
             {
                 data: 'status_counts',
-                title: 'Job Summary',
+                title: 'Status',
                 render: function (data) {
                     return renderStatusSummaryPills(data);
                 }
@@ -38,7 +45,7 @@ $(document).ready(function () {
             // Column 0 is excluded: Responsive auto-assigns it the
             // 'dtr-control' class for the mobile expand toggle, and adding
             // our own className here would clobber that.
-            { targets: [1, 2, 3, 4, 5, 6], className: 'text-center' }
+            { targets: [1, 2, 3, 4, 5], className: 'text-center' }
         ],
         lengthMenu: [[25, 50, 75, 100], [25, 50, 75, 100]],
         pageLength: 25,
@@ -52,9 +59,8 @@ $(document).ready(function () {
         paging: true,
         searching: true,
         ordering: true,
-        order: [[4, 'desc']],
+        order: [[3, 'desc']],
         // Whole row links to the matching job_name in that host's agent_detail
-        // Recent Jobs table, mirroring agentsTable's clickable-row behavior.
         createdRow: function (row, data) {
             if (data.agent_id) {
                 const url = `/agents/${data.agent_id}?job_name=${encodeURIComponent(data.job_name || '')}`;
@@ -83,25 +89,6 @@ $(document).ready(function () {
         if (!row) return;
         if (e.target.closest('a, button')) return;
         window.location = row.dataset.href;
-    });
-
-    // Purge dropdown logic
-    $(document).on('click', '.purge-action', function (e) {
-        e.preventDefault();
-        const status = $(this).data('status');
-        if (confirm(`Are you sure you want to purge all "${status}" events?`)) {
-            fetch(`/purge_events/${status}`, {method: 'POST'})
-                .then(resp => resp.json())
-                .then(data => {
-                    alert(data.message);
-                    // Reload the events table only, not the whole page
-                    if ($('#jobsTable').length && $.fn.DataTable.isDataTable('#jobsTable')) {
-                        $('#jobsTable').DataTable().ajax.reload(null, false);
-                    } else {
-                        location.reload();
-                    }
-                });
-        }
     });
 
     // --- Persistent Drag-and-Drop for Dashboard Cards ---
@@ -455,11 +442,12 @@ $(document).ready(function () {
     }
 
     // Activity Trend chart (all agents, last N days per retention.max_days)
-    // — data is bootstrapped server-side into window.DASHBOARD_TREND (see
-    // index.html). Segmented (stacked) by job status.
+    // — initial data is bootstrapped server-side into window.DASHBOARD_TREND
+    // (see index.html); later refreshes pass freshly-fetched data in. Segmented
+    // (stacked) by job status.
     let trendChart = null;
-    function initializeTrendChart() {
-        const trend = window.DASHBOARD_TREND || {};
+    function initializeTrendChart(trend) {
+        trend = trend || window.DASHBOARD_TREND || {};
         const trendLabels = trend.trendLabels || [];
         const trendDatasets = trend.trendDatasets || {};
         const canvas = document.getElementById('trendChart');
@@ -485,7 +473,7 @@ $(document).ready(function () {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: trendStatuses.length > 1, position: 'bottom' } },
+                plugins: { legend: { position: 'bottom' } },
                 scales: {
                     x: { stacked: true, ticks: { display: false } },
                     y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
@@ -499,17 +487,7 @@ $(document).ready(function () {
     initializeS3UsageChart();
     initializeTrendChart();
 
-    // --- Refresh dashboard data periodically ---
-    // Events table: near real-time (short interval), matches existing behavior.
-    startAutoRefresh(function () {
-        jobsTable.ajax.reload(null, false);
-    }, 10000); // every 10 seconds
-
-    // Connected Agents card, Network Storage chart, and Cloud Storage chart:
-    // these change less frequently, so refresh every few minutes. The Cloud
-    // Storage endpoint is backed by a server-side cache (refreshed in the
-    // background when stale), so polling it periodically is what allows the
-    // chart to ever pick up newly-refreshed data without a full page reload.
+    // --- Refresh dashboard data ---
     function refreshAgentsCard() {
         fetch('/partials/agents-card')
             .then(response => response.text())
@@ -520,10 +498,74 @@ $(document).ready(function () {
             .catch(error => console.error("Failed to refresh Connected Agents card:", error));
     }
 
+    function setStatText(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    }
+
+    // Stat cards + Activity Trend chart: both backed by the same aggregate
+    // backup_jobs query, so refresh together.
+    function refreshDashboardStats() {
+        fetch('/api/dashboard_stats')
+            .then(response => response.json())
+            .then(data => {
+                const sc = data.status_counts || {};
+                const totals = data.totals || {};
+                setStatText('stat-total-jobs', totals.total_jobs || 0);
+                setStatText('stat-success', (sc.success || 0) + (sc.completed || 0));
+                setStatText('stat-errors', (sc.error || 0) + (sc.failed || 0));
+                setStatText('stat-running', sc.running || 0);
+                setStatText('stat-stopped', sc.stopped || 0);
+                setStatText('stat-purged', sc.purged || 0);
+                initializeTrendChart({ trendLabels: data.trend_labels, trendDatasets: data.trend_datasets });
+            })
+            .catch(error => console.error("Failed to refresh dashboard stats:", error));
+    }
+
+    // Uptime Kuma badges are plain <img> tags, so browsers cache them by URL —
+    // cache-bust the src on each refresh to force a refetch of the live badge.
+    function refreshMonitorBadges() {
+        const container = document.getElementById('monitor-badges');
+        if (!container) return;
+        container.querySelectorAll('img').forEach(img => {
+            const url = new URL(img.src, window.location.origin);
+            url.searchParams.set('_', Date.now());
+            img.src = url.toString();
+        });
+    }
+
+    // Badges and storage charts aren't backed by this app's own database, so
+    // there's no "changed" signal to poll for — just refresh on a flat timer.
     startAutoRefresh(function () {
-        refreshAgentsCard();
+        refreshMonitorBadges();
         initializeDiskUsageChart();
         initializeS3UsageChart();
-    }, 120000); // every 2 minutes
+    }, 30000); // every 30 seconds
+
+    // Everything else (jobs table, Connected Agents card, stat cards, trend
+    // chart) is driven by backup_jobs/events, so poll a cheap version marker
+    // and only refetch the heavier views when the data actually changed —
+    // updates land within a few seconds instead of waiting on a fixed timer.
+    let lastDbVersion = null;
+    function checkDbVersionAndRefresh() {
+        fetch('/api/db_version')
+            .then(response => response.json())
+            .then(version => {
+                const stamp = `${version.max_job_updated}:${version.max_event_id}`;
+                if (lastDbVersion === null) {
+                    lastDbVersion = stamp;
+                    return;
+                }
+                if (stamp !== lastDbVersion) {
+                    lastDbVersion = stamp;
+                    jobsTable.ajax.reload(null, false);
+                    refreshAgentsCard();
+                    refreshDashboardStats();
+                }
+            })
+            .catch(error => console.error("Failed to check DB version:", error));
+    }
+
+    startAutoRefresh(checkDbVersionAndRefresh, 3000); // poll every 3 seconds
 
 }); // End document ready

@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 import yaml
 from cron_descriptor import get_description
-from flask import Blueprint, render_template, current_app, abort
+from flask import Blueprint, render_template, current_app, abort, jsonify
 from markupsafe import Markup
 import mistune
 
@@ -186,6 +186,32 @@ def agents_card_partial():
     """Render just the Connected Agents table body, for periodic AJAX refresh on the dashboard."""
     agents = _get_agents_summary()
     return render_template("partials/agents_table.html", agents=agents)
+
+@dashboard_bp.route("/api/db_version")
+def db_version():
+    """Cheap change marker for backup_jobs/events, polled client-side so the
+    dashboard can refresh DB-driven views as soon as data actually changes
+    instead of on a fixed timer. backup_jobs.updated_at covers inserts and
+    in-place status/progress updates; events is append-only so MAX(id) is enough.
+    """
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT MAX(updated_at) as v FROM backup_jobs")
+        max_job_updated = c.fetchone()['v']
+        c.execute("SELECT MAX(id) as v FROM events")
+        max_event_id = c.fetchone()['v']
+    return jsonify({'max_job_updated': max_job_updated, 'max_event_id': max_event_id})
+
+@dashboard_bp.route("/api/dashboard_stats")
+def dashboard_stats():
+    """JSON version of the Stat Cards + Activity Trend chart data, for periodic AJAX refresh."""
+    status_counts, totals, trend_labels, trend_datasets = _get_global_stats()
+    return jsonify({
+        'status_counts': status_counts,
+        'totals': totals,
+        'trend_labels': trend_labels,
+        'trend_datasets': trend_datasets
+    })
 
 @dashboard_bp.route("/agents/<int:agent_id>")
 def agent_detail(agent_id):
